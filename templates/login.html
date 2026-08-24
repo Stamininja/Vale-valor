@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vale Valor - Login</title>
+    <style>
+        body {
+            background-color: #0b1712;
+            color: #e2f1e8;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #12241b;
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid #1e3a2b;
+            width: 320px;
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #1e3a2b;
+            background-color: #0b1712;
+            color: white;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background-color: #2e6345;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover { background-color: #3b7a57; }
+        .toggle-link {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: #8dae9a;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .error { color: #ff6b6b; font-size: 0.85rem; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 id="form-title">Login to Vale Valor</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        
+        <button id="submit-btn" onclick="handleSubmit()">Log In</button>
+        <div id="error-msg" class="error"></div>
+
+        <div class="toggle-link" id="toggle-btn" onclick="toggleMode()">
+            Need an account? Create one here
+        </div>
+    </div>
+
+    <script>
+        let isSignUp = false;
+
+        function toggleMode() {
+            isSignUp = !isSignUp;
+            document.getElementById("form-title").textContent = isSignUp ? "Create Account" : "Login to Vale Valor";
+            document.getElementById("submit-btn").textContent = isSignUp ? "Sign Up" : "Log In";
+            document.getElementById("toggle-btn").textContent = isSignUp ? "Already have an account? Log in" : "Need an account? Create one here";
+            document.getElementById("error-msg").textContent = "";
+        }
+
+        async function handleSubmit() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const errorDiv = document.getElementById("error-msg");
+
+            errorDiv.textContent = ""; // Clear previous errors
+
+            if (!username || !password) {
+                errorDiv.textContent = "Please fill in both username and password.";
+                return;
+            }
+
+            const endpoint = isSignUp ? "/signup" : "/login";
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: username, password: password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    // Force a complete page refresh to trigger the main chat UI
+                    window.location.href = "/";
+                } else {
+                    errorDiv.textContent = data.error || "Login failed. Check your credentials.";
+                }
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                errorDiv.textContent = "Server error. Make sure app.py is running.";
+            }
+        }
+    </script>
+</body>
+</html>

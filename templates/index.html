@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vale Valor</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #08120e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #182e23;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2e6345;
+        }
+
+        body {
+            background-color: #0b1712;
+            color: #e2f1e8;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 260px;
+            background-color: #08120e;
+            border-right: 1px solid #1e3a2b;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            z-index: 10;
+        }
+        .sidebar-btn {
+            padding: 10px;
+            background-color: #2e6345;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s ease-in-out;
+        }
+        .sidebar-btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+        .mode-btn { 
+            background-color: #08120e; 
+            border: 1px solid #08120e; 
+            color: #8dae9a; 
+            text-align: center; 
+            justify-content: center;
+        }
+        .mode-btn.active-mode { 
+            background-color: #234835; 
+            border-color: #8dae9a; 
+            color: #ffffff; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .danger-btn { background-color: #722f2f; margin-top: auto; }
+        #thread-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .thread-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background-color: #08120e;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            user-select: none;
+        }
+        .thread-item:hover { background-color: #1a3326; }
+        .thread-item.active { background-color: #1e3a2b; font-weight: bold; }
+        .thread-title {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 6px;
+        }
+        .thread-actions { 
+            display: flex; 
+            gap: 6px; 
+            opacity: 0.7; 
+            align-items: center;
+        }
+        .thread-item:hover .thread-actions { opacity: 1; }
+        .action-btn { 
+            color: #8dae9a; 
+            cursor: pointer; 
+            padding: 2px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+        .action-btn:hover { color: #ffffff; }
+        .action-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .rename-input {
+            background: #0b1712;
+            border: 1px solid #8dae9a;
+            color: white;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.85rem;
+            width: 100%;
+            outline: none;
+        }
+
+        #main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; height: 40px; margin-bottom: 10px; }
+
+        /* CHAT VIEW */
+        #chat-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #1e3a2b;
+            padding: 20px;
+            border-radius: 12px;
+            background-color: #12241b;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+        .msg { 
+            padding: 12px 16px; 
+            border-radius: 10px; 
+            max-width: 75%; 
+            line-height: 1.5; 
+            animation: fadeInMsg 0.3s ease-out forwards;
+        }
+        @keyframes fadeInMsg {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .user { background-color: #234835; color: #ffffff; align-self: flex-end; }
+        .assistant { background-color: #183023; color: #d8ece0; align-self: flex-start; border: 1px solid #234835; }
+        .timestamp { font-size: 0.7rem; color: #6d937c; margin-top: 6px; }
+
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 18px;
+        }
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background-color: #8dae9a;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        .input-bar { display: flex; gap: 10px; height: 48px; }
+        .input-bar input { flex: 1; padding: 12px; border: 1px solid #1e3a2b; border-radius: 8px; background-color: #12241b; color: #ffffff; outline: none; }
+        .input-bar button { padding: 0 20px; background-color: #2e6345; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+        /* EXERCISE & ROUTINE CARDS */
+        #exercise-view, #routine-view {
+            flex: 1;
+            display: none;
+            overflow-y: auto;
+            position: relative;
+            background-color: #0d1b15;
+            border: 1px solid #1e3a2b;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .exercise-card {
+            border: 2px solid #2e6345;
+            border-radius: 24px;
+            padding: 35px;
+            max-width: 750px;
+            margin: 20px auto;
+            background: linear-gradient(145deg, #0b1712, #11221a);
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .edit-btn {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            border: 2px solid #8dae9a;
+            background: transparent;
+            color: #8dae9a;
+            padding: 8px 18px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .edit-btn:hover {
+            border-color: #ffffff;
+            color: #ffffff;
+            background: rgba(255,255,255,0.05);
+        }
+        .prompt-title {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            padding-right: 140px;
+        }
+        .prompt-input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .prompt-input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #1e3a2b;
+            background-color: #12241b;
+            color: #ffffff;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .prompt-input-row input:focus {
+            border-color: #52b788;
+        }
+        .log-header, .streak-info, .day-info {
+            font-size: 1.15rem;
+            margin-bottom: 18px;
+        }
+        .streak-badge {
+            display: inline-block;
+            background: #234835;
+            color: #52b788;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            animation: pulseGlow 2s infinite alternate;
+        }
+        @keyframes pulseGlow {
+            from { box-shadow: 0 0 4px rgba(82, 183, 136, 0.2); }
+            to { box-shadow: 0 0 12px rgba(82, 183, 136, 0.6); }
+        }
+        .exercise-item-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 18px;
+            font-size: 1.05rem;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(18, 36, 27, 0.5);
+            transition: transform 0.2s, background 0.2s;
+        }
+        .exercise-item-row:hover {
+            transform: translateX(4px);
+            background: rgba(18, 36, 27, 0.9);
+        }
+        .exercise-item-row label {
+            min-width: 220px;
+        }
+        .exercise-item-row input[type="number"] {
+            width: 70px;
+            height: 40px;
+            border: 2px solid #2e6345;
+            background: #0b1712;
+            color: white;
+            font-size: 1.1rem;
+            text-align: center;
+            margin-right: 15px;
+            outline: none;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .exercise-item-row input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            accent-color: #52b788;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        .exercise-item-row input:focus {
+            border-color: #52b788;
+            box-shadow: 0 0 8px rgba(82, 183, 136, 0.4);
+        }
+        .exercise-item-row .hint {
+            color: #8dae9a;
+            font-size: 0.95rem;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #12241b;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #2e6345, #52b788);
+            transition: width 0.4s ease-out;
+        }
+
+        .submit-log-btn {
+            margin-top: 15px;
+            background: #2e6345;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(46, 99, 69, 0.3);
+        }
+        .submit-log-btn:hover {
+            background: #3b7c57;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(46, 99, 69, 0.5);
+        }
+
+        /* PLANNER VIEW */
+        #planner-view {
+            flex: 1;
+            display: none;
+            position: relative;
+            background-color: #0d1b15;
+            border: 1px solid #1e3a2b;
+            border-radius: 12px;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #canvas-world {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5000px;
+            height: 50000px;
+            transform-origin: 0 0;
+        }
+        #svg-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .map-node {
+            position: absolute;
+            padding: 10px 16px;
+            border-radius: 8px;
+            background-color: #183023;
+            border: 2px solid #2e6345;
+            color: #ffffff;
+            cursor: grab;
+            user-select: none;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            text-align: center;
+            min-width: 140px;
+            max-width: 200px;
+            word-wrap: break-word;
+            z-index: 2;
+        }
+        .map-node.subject-node {
+            background-color: #234835;
+            border-color: #8dae9a;
+            font-size: 1.05rem;
+            padding: 14px 22px;
+            max-width: 260px;
+            z-index: 3;
+            cursor: pointer;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .map-node.subject-node:hover {
+            border-color: #ffffff;
+            box-shadow: 0 0 12px rgba(141, 174, 154, 0.6);
+        }
+        .map-node input.edit-input, .treemap-node input.edit-input {
+            background: #0b1712;
+            border: 1px solid #8dae9a;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            outline: none;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        .canvas-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 6px;
+            z-index: 20;
+        }
+        .canvas-controls button {
+            background: #12241b;
+            border: 1px solid #1e3a2b;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .canvas-controls button.active {
+            background-color: #2e6345;
+            border-color: #52b788;
+        }
+        .planner-floating-input {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 20;
+        }
+
+        /* TREEMAP STYLES */
+        .treemap-group-node {
+            position: absolute;
+            border: 2px solid #2e6345;
+            background-color: rgba(18, 36, 27, 0.85);
+            border-radius: 12px;
+            padding: 12px;
+            box-sizing: border-box;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            z-index: 2;
+        }
+        .treemap-group-node.subject-treemap {
+            border-color: #8dae9a;
+            background-color: rgba(35, 72, 53, 0.9);
+            cursor: pointer;
+        }
+        .treemap-header {
+            font-weight: bold;
+            font-size: 1.05rem;
+            color: #52b788;
+            margin-bottom: 8px;
+            text-align: left;
+            word-wrap: break-word;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(141, 174, 154, 0.3);
+        }
+        .treemap-container-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex: 1;
+        }
+        .treemap-child-box {
+            flex: 1 1 calc(50% - 8px);
+            min-width: 120px;
+            background-color: #12241b;
+            border: 1px solid #1e3a2b;
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .treemap-child-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #e2f1e8;
+        }
+        .treemap-leaf-item {
+            background: #0b1712;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 0.75rem;
+            color: #8dae9a;
+        }
+
+        /* MEDITATION VIEW */
+        #meditation-view {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #0d1b15;
+            border: 1px solid #1e3a2b;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .timer-circle-container {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+        .timer-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .timer-bg-ring {
+            fill: none;
+            stroke: #12241b;
+            stroke-width: 10;
+        }
+        .timer-progress-ring {
+            fill: none;
+            stroke: #2e6345;
+            stroke-width: 10;
+            stroke-linecap: round;
+            stroke-dasharray: 691;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+        .timer-display {
+            font-size: 2.8rem;
+            font-weight: bold;
+            color: #ffffff;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .custom-time-box {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            z-index: 2;
+        }
+        .custom-digit-input {
+            width: 38px;
+            height: 48px;
+            background: transparent;
+            border: 1px solid #1e3a2b;
+            border-radius: 4px;
+            color: white;
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-align: center;
+            outline: none;
+        }
+        .custom-digit-input:focus {
+            border-color: #52b788;
+        }
+        .meditation-btn {
+            background-color: #2e6345;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 6px;
+            transition: background 0.2s;
+        }
+        .meditation-btn:hover { background-color: #3b7c57; }
+        .preset-btn {
+            background: #12241b;
+            border: 1px solid #1e3a2b;
+            color: #8dae9a;
+            padding: 6px 14px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin: 0 4px 16px 4px;
+        }
+        .preset-btn.active {
+            border-color: #8dae9a;
+            color: #ffffff;
+            background: #234835;
+        }
+        .breathing-instruction {
+            margin-top: 15px;
+            font-size: 1.1rem;
+            color: #8dae9a;
+            letter-spacing: 0.5px;
+            min-height: 24px;
+        }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: #12241b; border: 1px solid #1e3a2b; padding: 20px; border-radius: 10px; width: 320px; display: flex; flex-direction: column; gap: 10px; }
+    </style>
+</head>
+<body onload="initApp()">
+    <audio id="bg-music" loop preload="auto">
+        <source src="{{ url_for('static', filename='audio/Bg_music.mp3') }}" type="audio/mpeg">
+    </audio>
+    <audio id="alarm-audio" preload="auto">
+        <source src="{{ url_for('static', filename='audio/Alarm.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <div id="sidebar">
+        <button class="sidebar-btn mode-btn active-mode" id="btn-chat-mode" onclick="switchMode('chat')">Vale</button>
+        <button class="sidebar-btn mode-btn" id="btn-routine-mode" onclick="switchMode('routine')">Routine Log</button>
+        <button class="sidebar-btn mode-btn" id="btn-exercise-mode" onclick="switchMode('exercise')">Exercise Log</button>
+        <button class="sidebar-btn mode-btn" id="btn-planner-mode" onclick="switchMode('planner')">Planner</button>
+        <button class="sidebar-btn mode-btn" id="btn-meditation-mode" onclick="switchMode('meditation')">Meditation</button>
+        <hr style="border-color:#1e3a2b; width:100%; margin: 10px 0;">
+        <button id="new-session-btn" class="sidebar-btn" onclick="createNewThread()">+ New Session</button>
+        <div id="thread-list"></div>
+        <button class="sidebar-btn" style="background-color: #1e3a2b;" onclick="openProfileModal()">Context / Profile</button>
+        <button class="sidebar-btn danger-btn" onclick="deleteAllThreads()">Delete All Sessions</button>
+    </div>
+
+    <div id="main-chat">
+        <div class="header">
+            <h2 id="app-title" style="margin:0;">Vale Valor</h2>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <button id="music-btn" onclick="toggleMusic()" style="background: #12241b; border: 1px solid #1e3a2b; color: #a3b18a; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">
+                     Music: Off
+                </button>
+                <span>Logged in as <b>{{ username }}</b></span>
+                <button style="background-color:#5a2d2d; padding:6px 10px; font-size:0.8rem; border-radius:6px; border:none; color:white; cursor:pointer;" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- CHAT VIEW -->
+        <div id="chat-view">
+            <div id="chat-box"></div>
+            <div class="input-bar">
+                <input type="text" id="user-input" placeholder="Talk to Vale..." onkeydown="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- ROUTINE LOG VIEW -->
+        <div id="routine-view">
+            <div id="routine-setup-card" class="exercise-card" style="display: none;">
+                <div class="prompt-title">
+                    This is the Daily Routine mode of Vale. What habit structure or daily goals would you like to maintain?
+                </div>
+                <div class="prompt-input-row">
+                    <span style="font-size: 1.05rem; text-decoration: underline; color:#e2f1e8;">User:</span>
+                    <input type="text" id="routine-plan-prompt-input" placeholder="Study morning, exercise afternoon, read book before sleep" onkeydown="if(event.key==='Enter') submitRoutinePlanSetup()">
+                    <button class="submit-log-btn" style="margin: 0;" onclick="submitRoutinePlanSetup()">Save Routine</button>
+                </div>
+            </div>
+
+            <div id="routine-active-log-view" class="exercise-card" style="display: none;">
+                <button class="edit-btn" onclick="showRoutineSetupCard()">Edit Routine</button>
+                
+                <div class="log-header">Daily Habit & Routine Checklist</div>
+                <div class="streak-info">Streak: <span class="streak-badge" id="routine-streak-count">0 Days</span></div>
+                <div class="day-info">Current Day: <b id="routine-day-count">1</b></div>
+
+                <div class="progress-bar-container">
+                    <div id="routine-progress" class="progress-bar-fill"></div>
+                </div>
+
+                <div id="dynamic-routine-list"></div>
+
+                <button class="submit-log-btn" onclick="saveDailyRoutineLog()">Submit Daily Routine</button>
+            </div>
+        </div>
+
+        <!-- EXERCISE VIEW -->
+        <div id="exercise-view">
+            <div id="setup-card" class="exercise-card" style="display: none;">
+                <div class="prompt-title">
+                    This is the Exercise mode of Vale. Tell me what exercises you want to do daily? This is editable
+                </div>
+                <div class="prompt-input-row">
+                    <span style="font-size: 1.05rem; text-decoration: underline; color:#e2f1e8;">User:</span>
+                    <input type="text" id="routine-prompt-input" placeholder="I like to do push ups, planks, curls, situps" onkeydown="if(event.key==='Enter') submitRoutineSetup()">
+                    <button class="submit-log-btn" style="margin: 0;" onclick="submitRoutineSetup()">Save Routine</button>
+                </div>
+            </div>
+
+            <div id="active-log-view" class="exercise-card" style="display: none;">
+                <button class="edit-btn" onclick="showSetupCard()">Edit Routine</button>
+                
+                <div class="log-header">Daily Exercise Tracker</div>
+                <div class="streak-info">Streak: <span class="streak-badge" id="streak-count">0 Days</span></div>
+                <div class="day-info">Current Day: <b id="day-count">1</b></div>
+
+                <div class="progress-bar-container">
+                    <div id="exercise-progress" class="progress-bar-fill"></div>
+                </div>
+
+                <div id="dynamic-exercise-list"></div>
+
+                <button class="submit-log-btn" onclick="saveDailyLog()">Submit Daily Log</button>
+            </div>
+        </div>
+
+        <!-- PLANNER VIEW -->
+        <div id="planner-view">
+            <div class="canvas-controls">
+                <button id="view-mindmap-btn" class="active" onclick="togglePlannerView('mindmap')">Mind Map</button>
+                <button id="view-treemap-btn" onclick="togglePlannerView('treemap')">TreeMap</button>
+                <button onclick="zoomCanvas(0.1)">+</button>
+                <button onclick="zoomCanvas(-0.1)">-</button>
+                <button onclick="reCenterLatest()">Re-center (Latest)</button>
+            </div>
+            <div id="canvas-world">
+                <svg id="svg-canvas"></svg>
+            </div>
+            <div class="input-bar planner-floating-input">
+                <input type="text" id="planner-input" placeholder="Iterate plan (e.g., 'Make it simpler' or 'Add budget steps')..." onkeydown="if(event.key==='Enter') generateMindMap()">
+                <button onclick="generateMindMap()">Update Map</button>
+            </div>
+        </div>
+
+        <!-- MEDITATION VIEW -->
+        <div id="meditation-view">
+            <div style="margin-bottom: 12px;">
+                <button class="preset-btn active" onclick="setMeditationDuration(3)">3 min</button>
+                <button class="preset-btn" onclick="setMeditationDuration(5)">5 min</button>
+                <button class="preset-btn" onclick="setMeditationDuration(10)">10 min</button>
+                <button class="preset-btn" id="custom-timer-btn" onclick="enableCustomInput()">Custom</button>
+            </div>
+
+            <div class="timer-circle-container">
+                <svg class="timer-svg" viewBox="0 0 240 240">
+                    <circle class="timer-bg-ring" cx="120" cy="120" r="110"></circle>
+                    <circle id="timer-ring" class="timer-progress-ring" cx="120" cy="120" r="110"></circle>
+                </svg>
+                <div id="meditation-timer" class="timer-display">3:00</div>
+                <div id="custom-timer-inputs" class="custom-time-box" style="display: none;">
+                    <input type="text" id="m1" class="custom-digit-input" maxlength="1" oninput="moveNext(this, 'm2')">
+                    <input type="text" id="m2" class="custom-digit-input" maxlength="1" oninput="moveNext(this, 's1')">
+                    <span style="font-size: 1.8rem; font-weight: bold; color: white;">:</span>
+                    <input type="text" id="s1" class="custom-digit-input" maxlength="1" oninput="moveNext(this, 's2')">
+                    <input type="text" id="s2" class="custom-digit-input" maxlength="1">
+                </div>
+            </div>
+
+            <div>
+                <button id="custom-set-btn" class="preset-btn" style="display: none; padding: 10px 24px; margin-bottom: 10px;" onclick="applyCustomDuration()">Set</button>
+            </div>
+
+            <div>
+                <button id="meditation-toggle-btn" class="meditation-btn" onclick="toggleMeditation()">Start</button>
+                <button class="preset-btn" style="padding: 10px 16px;" onclick="resetMeditation()">Reset</button>
+            </div>
+
+            <div id="breathing-prompt" class="breathing-instruction">Close your eyes</div>
+        </div>
+    </div>
+
+    <!-- PROFILE MODAL -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <h3>Personal Context</h3>
+            <label>Preferred Name:</label>
+            <input type="text" id="pref-name" placeholder="How should Vale call you?">
+            <label>Wellbeing Goals:</label>
+            <input type="text" id="wellbeing-goal" placeholder="e.g. Reduce stress & sleep 8h">
+            <button class="sidebar-btn" onclick="saveProfile()">Save Context</button>
+            <button class="sidebar-btn" style="background-color:#5a2d2d;" onclick="closeProfileModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+    let currentThreadId = null;
+    let currentMode = 'chat';
+    let plannerViewStyle = 'mindmap'; // 'mindmap' or 'treemap'
+    let threadsCache = []; 
+    let nodesData = []; 
+    let connections = []; 
+    let historyMapCache = []; // Caches current thread's mindmap data items for switching views
+
+    let currentY = 500;
+    let mapCounter = 0;
+    let lastMapCenterX = 2500;
+    let lastMapCenterY = 500;
+
+    let panX = -2000, panY = 0, scale = 1;
+    let isPanning = false, startPanX = 0, startPanY = 0;
+
+    let meditationDuration = 180;
+    let meditationTimeLeft = 180;
+    let meditationTimerId = null;
+    let isMeditationRunning = false;
+    const fullDashOffset = 691;
+
+    const music = document.getElementById("bg-music");
+    const alarm = document.getElementById("alarm-audio");
+    const musicBtn = document.getElementById("music-btn");
+    music.volume = 0.5;
+    alarm.volume = 1.0;
+
+    function toggleMusic() {
+        if (music.paused) {
+            music.play().then(() => {
+                musicBtn.innerText = " Music: On";
+                musicBtn.style.color = "#52b788";
+                musicBtn.style.borderColor = "#2e6345";
+            }).catch(err => console.log("Playback error:", err));
+        } else {
+            music.pause();
+            musicBtn.innerText = "Music: Off";
+            musicBtn.style.color = "#a3b18a";
+            musicBtn.style.borderColor = "#1e3a2b";
+        }
+    }
+
+    function stopMusic() {
+        music.pause();
+        musicBtn.innerText = "Music: Off";
+        musicBtn.style.color = "#a3b18a";
+        musicBtn.style.borderColor = "#1e3a2b";
+    }
+
+    function playAlarm() {
+        alarm.currentTime = 0;
+        alarm.play().catch(err => console.error("Alarm audio error:", err));
+    }
+
+    function stopAlarm() {
+        alarm.pause();
+        alarm.currentTime = 0;
+    }
+
+    async function initApp() {
+        setupCanvasPanZoom();
+        await loadThreads();
+        await loadProfile();
+        updateMeditationDisplay();
+    }
+
+    function switchMode(mode) {
+        currentMode = mode;
+        document.getElementById("btn-chat-mode").classList.toggle("active-mode", mode === 'chat');
+        document.getElementById("btn-routine-mode").classList.toggle("active-mode", mode === 'routine');
+        document.getElementById("btn-exercise-mode").classList.toggle("active-mode", mode === 'exercise');
+        document.getElementById("btn-planner-mode").classList.toggle("active-mode", mode === 'planner');
+        document.getElementById("btn-meditation-mode").classList.toggle("active-mode", mode === 'meditation');
+
+        document.getElementById("chat-view").style.display = mode === 'chat' ? 'flex' : 'none';
+        document.getElementById("routine-view").style.display = mode === 'routine' ? 'block' : 'none';
+        document.getElementById("exercise-view").style.display = mode === 'exercise' ? 'block' : 'none';
+        document.getElementById("planner-view").style.display = mode === 'planner' ? 'block' : 'none';
+        document.getElementById("meditation-view").style.display = mode === 'meditation' ? 'flex' : 'none';
+
+        const newBtn = document.getElementById("new-session-btn");
+
+        if (mode === 'chat') {
+            document.getElementById("app-title").innerText = "Vale Valor";
+            if (newBtn) newBtn.innerText = "+ New Session";
+        } else if (mode === 'routine') {
+            document.getElementById("app-title").innerText = "Vale Routine Tracker";
+            loadRoutinePlanView();
+        } else if (mode === 'exercise') {
+            document.getElementById("app-title").innerText = "Vale Exercise Tracker";
+            loadExerciseView();
+        } else if (mode === 'planner') {
+            document.getElementById("app-title").innerText = "Vale Interactive Planner";
+            if (newBtn) newBtn.innerText = "+ New Plan";
+            setTimeout(drawLines, 50);
+        } else if (mode === 'meditation') {
+            document.getElementById("app-title").innerText = "Vale Meditation";
+        }
+    }
+
+    function togglePlannerView(style) {
+        plannerViewStyle = style;
+        document.getElementById("view-mindmap-btn").classList.toggle("active", style === 'mindmap');
+        document.getElementById("view-treemap-btn").classList.toggle("active", style === 'treemap');
+        rebuildPlannerCanvas();
+    }
+
+    function rebuildPlannerCanvas() {
+        document.querySelectorAll('.map-node').forEach(el => el.remove());
+        document.querySelectorAll('.treemap-group-node').forEach(el => el.remove());
+        document.querySelectorAll('.prompt-divider').forEach(el => el.remove());
+        const svg = document.getElementById("svg-canvas");
+        if (svg) svg.querySelectorAll('.connector').forEach(c => c.remove());
+
+        nodesData = [];
+        connections = [];
+        currentY = 500;
+        mapCounter = 0;
+
+        historyMapCache.forEach(item => {
+            if (plannerViewStyle === 'treemap') {
+                renderTreemapData(item.data, item.promptText, item.timestamp);
+            } else {
+                renderMindMapData(item.data, item.promptText, item.timestamp);
+            }
+        });
+    }
+
+    // --- ROUTINE PLAN LOGIC ---
+    async function loadRoutinePlanView() {
+        try {
+            const res = await fetch("/routine/plan");
+            const data = await res.json();
+
+            if (data.routine && data.routine.tasks && data.routine.tasks.length > 0) {
+                renderActiveRoutineView(data.routine.tasks, data.streak || 0, (data.total_logs || 0) + 1);
+            } else {
+                showRoutineSetupCard();
+            }
+        } catch(err) {
+            console.error("Error loading routine plan:", err);
+            showRoutineSetupCard();
+        }
+    }
+
+    function showRoutineSetupCard() {
+        document.getElementById("routine-setup-card").style.display = "block";
+        document.getElementById("routine-active-log-view").style.display = "none";
+    }
+
+    async function submitRoutinePlanSetup() {
+        const input = document.getElementById("routine-plan-prompt-input");
+        const prompt = input.value.trim();
+        if (!prompt) return;
+
+        try {
+            const res = await fetch("/routine/setup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: prompt })
+            });
+
+            const data = await res.json();
+            if (data.success && data.routine) {
+                renderActiveRoutineView(data.routine.tasks, 0, 1);
+            }
+        } catch(err) {
+            console.error("Error setting up routine plan:", err);
+        }
+    }
+
+    function renderActiveRoutineView(tasks, streak, day) {
+        document.getElementById("routine-setup-card").style.display = "none";
+        document.getElementById("routine-active-log-view").style.display = "block";
+        document.getElementById("routine-streak-count").innerText = `${streak} Days`;
+        document.getElementById("routine-day-count").innerText = day;
+
+        const container = document.getElementById("dynamic-routine-list");
+        container.innerHTML = "";
+
+        tasks.forEach((item, index) => {
+            const row = document.createElement("div");
+            row.className = "exercise-item-row";
+            row.style.animation = `slideUpFade 0.3s ease-out ${index * 0.1}s both`;
+            row.innerHTML = `
+                <input type="checkbox" data-task="${item.id}" onchange="updateRoutineProgress()">
+                <label>${item.label}</label>
+            `;
+            container.appendChild(row);
+        });
+
+        updateRoutineProgress();
+    }
+
+    function updateRoutineProgress() {
+        const checkboxes = document.querySelectorAll("#dynamic-routine-list input[type='checkbox']");
+        let checked = 0;
+        checkboxes.forEach(box => {
+            if (box.checked) checked++;
+        });
+        const pct = checkboxes.length > 0 ? (checked / checkboxes.length) * 100 : 0;
+        document.getElementById("routine-progress").style.width = `${pct}%`;
+    }
+
+    async function saveDailyRoutineLog() {
+        const checkboxes = document.querySelectorAll("#dynamic-routine-list input[type='checkbox']");
+        const logData = {};
+
+        checkboxes.forEach(box => {
+            logData[box.getAttribute("data-task")] = box.checked;
+        });
+
+        try {
+            const res = await fetch("/routine/log_daily", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ logs: logData })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert("🎉 Daily routine logged successfully!");
+                loadRoutinePlanView();
+            }
+        } catch(err) {
+            console.error("Error logging routine:", err);
+        }
+    }
+
+    // --- EXERCISE SYSTEM LOGIC ---
+    async function loadExerciseView() {
+        try {
+            const res = await fetch("/exercise/routine");
+            const data = await res.json();
+
+            if (data.routine && data.routine.exercises && data.routine.exercises.length > 0) {
+                renderActiveLogView(data.routine.exercises, data.streak || 0, (data.total_logs || 0) + 1);
+            } else {
+                showSetupCard();
+            }
+        } catch(err) {
+            console.error("Error loading exercise routine:", err);
+            showSetupCard();
+        }
+    }
+
+    function showSetupCard() {
+        document.getElementById("setup-card").style.display = "block";
+        document.getElementById("active-log-view").style.display = "none";
+    }
+
+    async function submitRoutineSetup() {
+        const input = document.getElementById("routine-prompt-input");
+        const prompt = input.value.trim();
+        if (!prompt) return;
+
+        try {
+            const res = await fetch("/exercise/setup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: prompt })
+            });
+
+            const data = await res.json();
+            if (data.success && data.routine) {
+                renderActiveLogView(data.routine.exercises, 0, 1);
+            }
+        } catch(err) {
+            console.error("Error setting up routine:", err);
+        }
+    }
+
+    function renderActiveLogView(exercises, streak, day) {
+        document.getElementById("setup-card").style.display = "none";
+        document.getElementById("active-log-view").style.display = "block";
+        document.getElementById("streak-count").innerText = `${streak} Days`;
+        document.getElementById("day-count").innerText = day;
+
+        const container = document.getElementById("dynamic-exercise-list");
+        container.innerHTML = "";
+
+        exercises.forEach((item, index) => {
+            const row = document.createElement("div");
+            row.className = "exercise-item-row";
+            row.style.animation = `slideUpFade 0.3s ease-out ${index * 0.1}s both`;
+            row.innerHTML = `
+                <label>${item.label}</label>
+                <input type="number" data-exercise="${item.name}" min="0" placeholder="0" oninput="updateExerciseProgress()">
+                <span class="hint">target daily rep/set count</span>
+            `;
+            container.appendChild(row);
+        });
+
+        updateExerciseProgress();
+    }
+
+    function updateExerciseProgress() {
+        const inputs = document.querySelectorAll("#dynamic-exercise-list input");
+        let filled = 0;
+        inputs.forEach(input => {
+            if (input.value && parseFloat(input.value) > 0) filled++;
+        });
+        const pct = inputs.length > 0 ? (filled / inputs.length) * 100 : 0;
+        document.getElementById("exercise-progress").style.width = `${pct}%`;
+    }
+
+    async function saveDailyLog() {
+        const inputs = document.querySelectorAll("#dynamic-exercise-list input");
+        const logData = {};
+
+        inputs.forEach(input => {
+            logData[input.getAttribute("data-exercise")] = input.value || 0;
+        });
+
+        try {
+            const res = await fetch("/exercise/log_daily", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ logs: logData })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert("🎉 Workout logged successfully!");
+                loadExerciseView();
+            }
+        } catch(err) {
+            console.error("Error logging workout:", err);
+        }
+    }
+
+    // --- MEDITATION LOGIC ---
+    function setMeditationDuration(minutes) {
+        if (isMeditationRunning) pauseMeditation();
+        stopAlarm();
+        meditationDuration = minutes * 60;
+        meditationTimeLeft = meditationDuration;
+
+        document.getElementById("meditation-timer").style.display = "flex";
+        document.getElementById("custom-timer-inputs").style.display = "none";
+        document.getElementById("custom-set-btn").style.display = "none";
+
+        const btns = document.querySelectorAll('.preset-btn');
+        btns.forEach(btn => {
+            if (btn.innerText.includes(`${minutes} min`)) {
+                btn.classList.add('active');
+            } else if (btn.innerText.includes('min') || btn.id === 'custom-timer-btn') {
+                btn.classList.remove('active');
+            }
+        });
+
+        updateMeditationDisplay();
+    }
+
+    function enableCustomInput() {
+        if (isMeditationRunning) pauseMeditation();
+        stopAlarm();
+
+        document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('custom-timer-btn').classList.add('active');
+
+        document.getElementById("meditation-timer").style.display = "none";
+        document.getElementById("custom-timer-inputs").style.display = "flex";
+        document.getElementById("custom-set-btn").style.display = "inline-block";
+
+        document.getElementById("m1").value = "";
+        document.getElementById("m2").value = "";
+        document.getElementById("s1").value = "";
+        document.getElementById("s2").value = "";
+        document.getElementById("m1").focus();
+    }
+
+    function moveNext(current, nextId) {
+        if (current.value.length >= 1) {
+            document.getElementById(nextId).focus();
+        }
+    }
+
+    function applyCustomDuration() {
+        const m1 = document.getElementById("m1").value || "0";
+        const m2 = document.getElementById("m2").value || "0";
+        const s1 = document.getElementById("s1").value || "0";
+        const s2 = document.getElementById("s2").value || "0";
+
+        const minutes = parseInt(m1 + m2, 10);
+        const seconds = parseInt(s1 + s2, 10);
+
+        const totalSeconds = (minutes * 60) + seconds;
+
+        if (isNaN(totalSeconds) || totalSeconds <= 0) {
+            alert("Please enter a valid time.");
+            return;
+        }
+
+        meditationDuration = totalSeconds;
+        meditationTimeLeft = totalSeconds;
+
+        document.getElementById("custom-timer-inputs").style.display = "none";
+        document.getElementById("custom-set-btn").style.display = "none";
+        document.getElementById("meditation-timer").style.display = "flex";
+
+        updateMeditationDisplay();
+    }
+
+    function updateMeditationDisplay() {
+        const mins = Math.floor(meditationTimeLeft / 60);
+        const secs = meditationTimeLeft % 60;
+        document.getElementById("meditation-timer").innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+        const ring = document.getElementById("timer-ring");
+        const progress = meditationTimeLeft / meditationDuration;
+        const dashoffset = fullDashOffset * (1 - progress);
+        ring.style.strokeDashoffset = dashoffset;
+    }
+
+    function toggleMeditation() {
+        if (isMeditationRunning) {
+            pauseMeditation();
+        } else {
+            startMeditation();
+        }
+    }
+
+    function startMeditation() {
+        stopAlarm();
+        if (meditationTimeLeft <= 0) meditationTimeLeft = meditationDuration;
+        isMeditationRunning = true;
+        document.getElementById("meditation-toggle-btn").innerText = "Pause";
+        document.getElementById("breathing-prompt").innerText = "Breathe deeply and clear your mind";
+
+        meditationTimerId = setInterval(() => {
+            if (meditationTimeLeft > 0) {
+                meditationTimeLeft--;
+                updateMeditationDisplay();
+            } else {
+                pauseMeditation();
+                stopMusic();
+                playAlarm();
+                document.getElementById("breathing-prompt").innerText = "Session complete. Well done.";
+            }
+        }, 1000);
+    }
+
+    function pauseMeditation() {
+        isMeditationRunning = false;
+        clearInterval(meditationTimerId);
+        stopAlarm();
+        document.getElementById("meditation-toggle-btn").innerText = "Start";
+        if (meditationTimeLeft > 0) {
+            document.getElementById("breathing-prompt").innerText = "Paused";
+        }
+    }
+
+    function resetMeditation() {
+        pauseMeditation();
+        stopAlarm();
+        meditationTimeLeft = meditationDuration;
+        document.getElementById("breathing-prompt").innerText = "Close your eyes";
+        updateMeditationDisplay();
+    }
+
+    // --- CANVAS PAN & ZOOM ---
+    function setupCanvasPanZoom() {
+        const view = document.getElementById("planner-view");
+        updateTransform();
+
+        view.addEventListener("mousedown", (e) => {
+            if (e.target.closest('.map-node') || e.target.closest('.treemap-group-node') || e.target.closest('.planner-floating-input') || e.target.closest('.canvas-controls') || e.target.closest('.prompt-divider')) return;
+            isPanning = true;
+            startPanX = e.clientX - panX;
+            startPanY = e.clientY - panY;
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!isPanning) return;
+            panX = e.clientX - startPanX;
+            panY = e.clientY - startPanY;
+            updateTransform();
+        });
+
+        window.addEventListener("mouseup", () => { isPanning = false; });
+    }
+
+    function zoomCanvas(delta) {
+        const oldScale = scale;
+        scale = Math.min(Math.max(0.3, scale + delta), 2.0);
+        
+        const plannerView = document.getElementById("planner-view");
+        const centerX = plannerView.clientWidth / 2;
+        const centerY = plannerView.clientHeight / 2;
+
+        panX = centerX - (centerX - panX) * (scale / oldScale);
+        panY = centerY - (centerY - panY) * (scale / oldScale);
+
+        updateTransform();
+    }
+
+    function centerOnCoords(x, y) {
+        const plannerView = document.getElementById("planner-view");
+        panX = -(x * scale - plannerView.clientWidth / 2);
+        panY = -(y * scale - plannerView.clientHeight / 2);
+        updateTransform();
+    }
+
+    function reCenterLatest() {
+        centerOnCoords(lastMapCenterX, lastMapCenterY);
+    }
+
+    function updateTransform() {
+        const world = document.getElementById("canvas-world");
+        world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    // --- PLANNER GENERATION & DUAL VIEW RENDERING ---
+    async function generateMindMap() {
+        const input = document.getElementById("planner-input");
+        const promptText = input.value.trim();
+        if (!promptText || !currentThreadId) return;
+
+        const activeThread = threadsCache.find(t => t.id === currentThreadId);
+        if (activeThread && (!activeThread.title || activeThread.title === 'New Session' || activeThread.title === 'New Chat')) {
+            await setThreadTitle(currentThreadId, promptText);
+        }
+
+        input.value = "Updating plan...";
+        input.disabled = true;
+
+        try {
+            const res = await fetch("/generate_mindmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ topic: promptText, thread_id: currentThreadId })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                const parsedData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+                historyMapCache.push({ data: parsedData, promptText, timestamp: data.timestamp });
+                if (plannerViewStyle === 'treemap') {
+                    renderTreemapData(parsedData, promptText, data.timestamp);
+                } else {
+                    renderMindMapData(parsedData, promptText, data.timestamp);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to update mind map:", err);
+        } finally {
+            input.value = "";
+            input.disabled = false;
+        }
+    }
+
+    function renderPromptDivider(promptText, timestamp, centerX, centerY) {
+        if (!promptText) return;
+        const world = document.getElementById("canvas-world");
+        const divider = document.createElement("div");
+        divider.className = "prompt-divider";
+        divider.style.cssText = `
+            position: absolute;
+            left: ${centerX - 300}px;
+            top: ${centerY - 420}px;
+            width: 600px;
+            background: #12241b;
+            border: 1px solid #8dae9a;
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: #e2f1e8;
+            font-weight: bold;
+            text-align: center;
+            z-index: 5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        `;
+        divider.innerHTML = `💬 ${promptText} <span style="font-size: 0.75rem; color: #6d937c; display: block; margin-top: 4px;">${timestamp}</span>`;
+        world.appendChild(divider);
+    }
+
+    // --- MIND MAP RENDERING ---
+    function renderMindMapData(data, promptText = "", timestamp = "") {
+        mapCounter++;
+        const mapTag = `m${mapCounter}`;
+        const centerX = 2500;
+        const centerY = currentY;
+
+        lastMapCenterX = centerX;
+        lastMapCenterY = centerY;
+
+        renderPromptDivider(promptText, timestamp, centerX, centerY);
+
+        const subjectNode = createNodeElement(`${mapTag}-subject`, data.subject || "Topic", centerX, centerY, true);
+        nodesData.push(subjectNode);
+
+        const topics = data.topics || [];
+        const topicCount = topics.length;
+
+        topics.forEach((topic, i) => {
+            const angle = (i / (topicCount || 1)) * (2 * Math.PI);
+            const topicRadius = 320;
+            const tx = centerX + Math.cos(angle) * topicRadius;
+            const ty = centerY + Math.sin(angle) * topicRadius;
+
+            const topicTitle = typeof topic === 'object' ? topic.title : topic;
+            const topicNode = createNodeElement(`${mapTag}-topic-${i}`, topicTitle || "Subtopic", tx, ty);
+            nodesData.push(topicNode);
+            connections.push({ from: subjectNode.id, to: topicNode.id });
+
+            const objects = (typeof topic === 'object' && topic.objects) ? topic.objects : [];
+            const objCount = objects.length;
+
+            objects.forEach((objTitle, j) => {
+                const spread = 0.45;
+                const subAngle = angle + ((j - (objCount - 1) / 2) * spread);
+                const objRadius = 220;
+                const ox = tx + Math.cos(subAngle) * objRadius;
+                const oy = ty + Math.sin(subAngle) * objRadius;
+
+                const objNode = createNodeElement(`${mapTag}-obj-${i}-${j}`, objTitle, ox, oy);
+                nodesData.push(objNode);
+                connections.push({ from: topicNode.id, to: objNode.id });
+            });
+        });
+
+        centerOnCoords(centerX, centerY);
+        currentY += 1200;
+        setTimeout(drawLines, 50);
+    }
+
+    // --- TREEMAP RENDERING ---
+    function renderTreemapData(data, promptText = "", timestamp = "") {
+        mapCounter++;
+        const world = document.getElementById("canvas-world");
+        const centerX = 2500;
+        const centerY = currentY;
+
+        lastMapCenterX = centerX;
+        lastMapCenterY = centerY;
+
+        renderPromptDivider(promptText, timestamp, centerX, centerY);
+
+        const groupWidth = 640;
+        const groupHeight = 420;
+        const groupX = centerX - groupWidth / 2;
+        const groupY = centerY - groupHeight / 2;
+
+        const mainGroup = document.createElement("div");
+        mainGroup.className = "treemap-group-node subject-treemap";
+        mainGroup.style.left = `${groupX}px`;
+        mainGroup.style.top = `${groupY}px`;
+        mainGroup.style.width = `${groupWidth}px`;
+        mainGroup.style.minHeight = `${groupHeight}px`;
+
+        const header = document.createElement("div");
+        header.className = "treemap-header";
+        header.innerText = data.subject || "Subject Plan";
+        header.onclick = (e) => {
+            e.stopPropagation();
+            centerOnCoords(centerX, centerY);
+        };
+        header.ondblclick = (e) => makeEditable(header, e);
+
+        const grid = document.createElement("div");
+        grid.className = "treemap-container-grid";
+
+        (data.topics || []).forEach((topic) => {
+            const childBox = document.createElement("div");
+            childBox.className = "treemap-child-box";
+
+            const childTitle = document.createElement("div");
+            childTitle.className = "treemap-child-title";
+            childTitle.innerText = typeof topic === 'object' ? topic.title : topic;
+            childTitle.ondblclick = (e) => makeEditable(childTitle, e);
+            childBox.appendChild(childTitle);
+
+            const objects = (typeof topic === 'object' && topic.objects) ? topic.objects : [];
+            objects.forEach(objTitle => {
+                const leaf = document.createElement("div");
+                leaf.className = "treemap-leaf-item";
+                leaf.innerText = objTitle;
+                leaf.ondblclick = (e) => makeEditable(leaf, e);
+                childBox.appendChild(leaf);
+            });
+
+            grid.appendChild(childBox);
+        });
+
+        mainGroup.appendChild(header);
+        mainGroup.appendChild(grid);
+        makeDraggable(mainGroup);
+
+        world.appendChild(mainGroup);
+
+        centerOnCoords(centerX, centerY);
+        currentY += 1200;
+    }
+
+    function makeEditable(element, e) {
+        e.stopPropagation();
+        if (element.querySelector('input')) return;
+
+        const currentText = element.innerText;
+        element.innerText = "";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "edit-input";
+        input.value = currentText;
+
+        const saveEdit = () => {
+            element.innerText = input.value.trim() || currentText;
+        };
+
+        input.onblur = saveEdit;
+        input.onkeydown = (ev) => { if (ev.key === 'Enter') saveEdit(); };
+
+        element.appendChild(input);
+        input.focus();
+        input.select();
+    }
+
+    function createNodeElement(id, text, x, y, isSubject = false) {
+        const world = document.getElementById("canvas-world");
+        const div = document.createElement("div");
+        div.id = id;
+        div.className = "map-node" + (isSubject ? " subject-node" : "");
+        div.style.left = `${x}px`;
+        div.style.top = `${y}px`;
+        div.innerText = text;
+
+        if (isSubject) {
+            div.onclick = (e) => {
+                e.stopPropagation();
+                centerOnCoords(x, y);
+            };
+        }
+
+        div.ondblclick = (e) => makeEditable(div, e);
+
+        makeDraggable(div);
+        world.appendChild(div);
+        return { id, element: div };
+    }
+
+    function makeDraggable(element) {
+        let active = false;
+        let startX, startY, initialX, initialY;
+
+        element.onmousedown = (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            e.stopPropagation();
+            active = true;
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            initialX = element.offsetLeft;
+            initialY = element.offsetTop;
+
+            document.onmousemove = (ev) => {
+                if (!active) return;
+                const dx = (ev.clientX - startX) / scale;
+                const dy = (ev.clientY - startY) / scale;
+                element.style.left = `${initialX + dx}px`;
+                element.style.top = `${initialY + dy}px`;
+                drawLines();
+            };
+
+            document.onmouseup = () => {
+                active = false;
+                document.onmousemove = null;
+                document.onmouseup = null;
+            };
+        };
+    }
+
+    function drawLines() {
+        const svg = document.getElementById("svg-canvas");
+        if (!svg) return;
+        svg.querySelectorAll('.connector').forEach(c => c.remove());
+
+        connections.forEach(conn => {
+            const elA = document.getElementById(conn.from);
+            const elB = document.getElementById(conn.to);
+            if (!elA || !elB) return;
+
+            const x1 = elA.offsetLeft + elA.offsetWidth / 2;
+            const y1 = elA.offsetTop + elA.offsetHeight / 2;
+            const x2 = elB.offsetLeft + elB.offsetWidth / 2;
+            const y2 = elB.offsetTop + elB.offsetHeight / 2;
+
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("class", "connector");
+            line.setAttribute("x1", x1);
+            line.setAttribute("y1", y1);
+            line.setAttribute("x2", x2);
+            line.setAttribute("y2", y2);
+            line.setAttribute("stroke", "#1e3a2b");
+            line.setAttribute("stroke-width", "2");
+
+            svg.appendChild(line);
+        });
+    }
+
+    // --- CHAT SYSTEM ---
+    function showTypingIndicator() {
+        const chatBox = document.getElementById("chat-box");
+        const indicator = document.createElement("div");
+        indicator.id = "typing-indicator";
+        indicator.className = "msg assistant typing-indicator";
+        indicator.innerHTML = `<span></span><span></span><span></span>`;
+        chatBox.appendChild(indicator);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const indicator = document.getElementById("typing-indicator");
+        if (indicator) indicator.remove();
+    }
+
+    async function sendMessage() {
+        const inputField = document.getElementById("user-input");
+        const message = inputField.value.trim();
+        if (!message || !currentThreadId) return;
+
+        const activeThread = threadsCache.find(t => t.id === currentThreadId);
+        if (activeThread && (!activeThread.title || activeThread.title === 'New Session' || activeThread.title === 'New Chat')) {
+            await setThreadTitle(currentThreadId, message);
+        }
+
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        appendMessage("user", message, now);
+        inputField.value = "";
+
+        showTypingIndicator();
+
+        try {
+            const res = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: message, thread_id: currentThreadId })
+            });
+
+            const data = await res.json();
+            removeTypingIndicator();
+
+            if (data.reply) {
+                appendMessage("assistant", data.reply, data.timestamp || now);
+            } else if (data.error) {
+                appendMessage("assistant", "⚠️ Error: " + data.error, now);
+            }
+
+            // --- INTENT / ACTION LAYER ROUTER ---
+            if (data.action && data.action !== "none" && !data.requires_confirmation) {
+                handleAiAction(data.action, data.context);
+            }
+        } catch (err) {
+            removeTypingIndicator();
+            appendMessage("assistant", "⚠️ Connection error occurred.", now);
+            console.error("Error sending message:", err);
+        }
+    }
+
+    function handleAiAction(action, context) {
+        context = context || {};
+        
+        switch(action) {
+            case "open_planner":
+                switchMode("planner");
+                if (context.prompt || context.topic) {
+                    const plannerInput = document.getElementById("planner-input");
+                    if (plannerInput) {
+                        plannerInput.value = context.prompt || context.topic;
+                        generateMindMap();
+                    }
+                }
+                break;
+
+            case "open_routine":
+                switchMode("routine");
+                if (context.prompt) {
+                    const routineInput = document.getElementById("routine-plan-prompt-input");
+                    if (routineInput) {
+                        routineInput.value = context.prompt;
+                        submitRoutinePlanSetup();
+                    }
+                }
+                break;
+
+            case "open_exercise":
+                switchMode("exercise");
+                if (context.prompt) {
+                    const exerciseInput = document.getElementById("routine-prompt-input");
+                    if (exerciseInput) {
+                        exerciseInput.value = context.prompt;
+                        submitRoutineSetup();
+                    }
+                }
+                break;
+
+            case "open_meditation":
+                switchMode("meditation");
+                if (typeof startMeditation === 'function') {
+                    startMeditation();
+                }
+                break;
+
+            default:
+                console.log("Unknown action context:", action);
+                break;
+        }
+    }
+
+    function appendMessage(role, content, timestamp) {
+        if (role !== 'user' && role !== 'assistant' && role !== 'system') return;
+
+        const chatBox = document.getElementById("chat-box");
+        const div = document.createElement("div");
+        div.className = "msg " + role;
+        const parsedContent = role === "assistant" ? marked.parse(content || "") : (content || "");
+        const timeTag = timestamp ? `<div class="timestamp">${timestamp}</div>` : "";
+        div.innerHTML = parsedContent + timeTag;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return div;
+    }
+
+    // --- SESSIONS AND THREAD SWITCHING ---
+    async function loadThreads() {
+        try {
+            const res = await fetch("/threads");
+            if (res.ok) {
+                const data = await res.json();
+                threadsCache = data.threads || [];
+                renderSidebarList(threadsCache);
+
+                if (!currentThreadId && threadsCache.length > 0) {
+                    await switchThread(threadsCache[0].id);
+                } else if (threadsCache.length === 0) {
+                    await createNewThread();
+                }
+            }
+        } catch(err) {
+            console.error("Failed to load threads:", err);
+        }
+    }
+
+    async function setThreadTitle(id, title) {
+        const targetThread = threadsCache.find(t => t.id === id);
+        if (targetThread) targetThread.title = title;
+        renderSidebarList(threadsCache);
+
+        try {
+            await fetch(`/threads/${id}/rename`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: title })
+            });
+        } catch(err) {
+            console.error("Failed to set thread title:", err);
+        }
+    }
+
+    function renderSidebarList(threads) {
+        const list = document.getElementById("thread-list");
+        list.innerHTML = "";
+
+        threads.forEach(t => {
+            const item = document.createElement("div");
+            item.className = "thread-item" + (t.id === currentThreadId ? " active" : "");
+            
+            item.onclick = (e) => {
+                if (e.target.closest('.thread-actions') || e.target.tagName === 'INPUT') return;
+                switchThread(t.id);
+            };
+
+            const titleSpan = document.createElement("span");
+            titleSpan.className = "thread-title";
+            titleSpan.innerText = t.title || 'New Session';
+
+            const actionsDiv = document.createElement("div");
+            actionsDiv.className = "thread-actions";
+            
+            const editBtn = document.createElement("span");
+            editBtn.className = "action-btn";
+            editBtn.title = "Rename Session";
+            editBtn.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+            `;
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                enableThreadRename(t.id, titleSpan);
+            };
+
+            const deleteBtn = document.createElement("span");
+            deleteBtn.className = "action-btn";
+            deleteBtn.title = "Delete Session";
+            deleteBtn.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            `;
+            deleteBtn.onclick = (e) => {
+                deleteThread(e, t.id);
+            };
+
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(deleteBtn);
+
+            item.appendChild(titleSpan);
+            item.appendChild(actionsDiv);
+            list.appendChild(item);
+        });
+    }
+
+    function enableThreadRename(id, element) {
+        if (element.querySelector('input')) return;
+        
+        const currentTitle = element.innerText;
+        element.innerText = "";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "rename-input";
+        input.value = currentTitle;
+
+        input.onclick = (e) => e.stopPropagation();
+        input.onmousedown = (e) => e.stopPropagation();
+
+        let isSaved = false;
+
+        const saveRename = async () => {
+            if (isSaved) return;
+            isSaved = true;
+
+            const newTitle = input.value.trim() || currentTitle;
+            element.innerText = newTitle;
+
+            const targetThread = threadsCache.find(t => t.id === id);
+            if (targetThread) targetThread.title = newTitle;
+
+            if (newTitle !== currentTitle) {
+                try {
+                    await fetch(`/threads/${id}/rename`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ title: newTitle })
+                    });
+                } catch(err) {
+                    console.error("Failed to rename thread:", err);
+                    element.innerText = currentTitle;
+                    if (targetThread) targetThread.title = currentTitle;
+                }
+            }
+        };
+
+        input.onblur = saveRename;
+
+        input.onkeydown = async (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                input.blur();
+            }
+            if (e.key === 'Escape') {
+                isSaved = true;
+                element.innerText = currentTitle;
+            }
+        };
+
+        element.appendChild(input);
+
+        setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 50);
+    }
+
+    async function createNewThread() {
+        try {
+            const res = await fetch("/threads/new", { method: "POST" });
+            if (res.ok) {
+                const data = await res.json();
+                currentThreadId = data.thread_id;
+                await loadThreads();
+                await switchThread(currentThreadId);
+            }
+        } catch(err) {
+            console.error("Failed to create new thread:", err);
+        }
+    }
+
+    async function switchThread(id) {
+        currentThreadId = id;
+        
+        document.querySelectorAll('.thread-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        const threadElements = document.querySelectorAll('.thread-item');
+        threadsCache.forEach((t, idx) => {
+            if (t.id === id && threadElements[idx]) {
+                threadElements[idx].classList.add('active');
+            }
+        });
+
+        document.getElementById("chat-box").innerHTML = "";
+        
+        document.querySelectorAll('.map-node').forEach(el => el.remove());
+        document.querySelectorAll('.treemap-group-node').forEach(el => el.remove());
+        document.querySelectorAll('.prompt-divider').forEach(el => el.remove());
+        const svg = document.getElementById("svg-canvas");
+        if (svg) svg.querySelectorAll('.connector').forEach(c => c.remove());
+
+        nodesData = [];
+        connections = [];
+        historyMapCache = [];
+        currentY = 500;
+        mapCounter = 0;
+
+        try {
+            const res = await fetch(`/history/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                let pendingPrompt = "";
+                let pendingTimestamp = "";
+
+                const historyList = data.history || data.messages || [];
+
+                historyList.forEach(msg => {
+                    const rawRole = msg.role || msg.sender;
+                    const content = msg.content || msg.text || msg.message;
+
+                    let role = rawRole;
+                    if (role === 'bot' || role === 'ai') role = 'assistant';
+
+                    if (role === 'user') {
+                        pendingPrompt = content;
+                        pendingTimestamp = msg.timestamp || "";
+                        appendMessage("user", content, msg.timestamp);
+                    } else if (role === 'assistant') {
+                        let textContent = content;
+                        try {
+                            const parsed = JSON.parse(content);
+                            textContent = parsed.response || content;
+                        } catch(e) {}
+                        appendMessage("assistant", textContent, msg.timestamp);
+                    } else if (role === 'mindmap') {
+                        try {
+                            const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+                            historyMapCache.push({ data: parsed, promptText: pendingPrompt, timestamp: pendingTimestamp });
+                            if (plannerViewStyle === 'treemap') {
+                                renderTreemapData(parsed, pendingPrompt, pendingTimestamp);
+                            } else {
+                                renderMindMapData(parsed, pendingPrompt, pendingTimestamp);
+                            }
+                        } catch(e) {
+                            console.error("Invalid mind map JSON in history:", e);
+                        }
+                    }
+                });
+            }
+        } catch(err) {
+            console.error("Failed to load history:", err);
+        }
+    }
+
+    async function deleteThread(e, id) {
+        e.stopPropagation();
+        try {
+            await fetch(`/threads/${id}/delete`, { method: "DELETE" });
+            if (currentThreadId === id) currentThreadId = null;
+            await loadThreads();
+        } catch(err) {
+            console.error("Failed to delete thread:", err);
+        }
+    }
+
+    async function deleteAllThreads() {
+        if (!confirm("Delete all sessions?")) return;
+        try {
+            await fetch("/threads/delete_all", { method: "DELETE" });
+            currentThreadId = null;
+            document.getElementById("chat-box").innerHTML = "";
+            await loadThreads();
+        } catch(err) {
+            console.error("Failed to delete all threads:", err);
+        }
+    }
+
+    // --- PROFILE MANAGEMENT ---
+    async function loadProfile() {
+        try {
+            const res = await fetch("/profile");
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById("pref-name").value = data.preferred_name || "";
+                document.getElementById("wellbeing-goal").value = data.wellbeing_goals || "";
+            }
+        } catch(err) {
+            console.error("Failed to load profile:", err);
+        }
+    }
+
+    async function saveProfile() {
+        const preferred_name = document.getElementById("pref-name").value.trim();
+        const wellbeing_goals = document.getElementById("wellbeing-goal").value.trim();
+        try {
+            await fetch("/profile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ preferred_name, wellbeing_goals })
+            });
+            closeProfileModal();
+        } catch(err) {
+            console.error("Failed to save profile:", err);
+        }
+    }
+
+    function openProfileModal() { document.getElementById("profile-modal").style.display = "flex"; }
+    function closeProfileModal() { document.getElementById("profile-modal").style.display = "none"; }
+
+    async function logout() {
+        try {
+            await fetch("/logout", { method: "POST" });
+        } catch(err) {
+            console.error("Logout request failed:", err);
+        } finally {
+            window.location.reload();
+        }
+    }
+</script>
+</body>
+</html>
