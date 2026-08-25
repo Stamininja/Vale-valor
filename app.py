@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from groq import Groq
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-key-change-me")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.db")
@@ -219,10 +219,7 @@ def get_system_prompt(user_id):
 
             "COMPLETED TASKS:\n"
             "When a tool or mode has successfully completed a user's request, recognize that task as completed. A user's reaction to the result is conversation about the result, not a new instruction to perform the task again.\n"
-
-            "SHORT ACKNOWLEDGMENTS:\n"
-            "For very short messages such as 'ok', 'okay', 'got it', 'ya', 'yeah', 'nice', 'yay', 'lol', 'thanks', or similar acknowledgments, use the recent conversation context to understand what they refer to, but do not over-analyze them or generate a new task. Respond briefly and naturally, usually 1 short sentence. Do not reopen a mode or introduce a new topic unless the message clearly requires it.\n"
-
+            
             "CONVERSATIONAL STYLE:\n"
             "1. Do not use Markdown tables unless explicitly requested.\n"
             "2. Prefer short, readable responses, usually 1 to 4 sentences.\n"
@@ -425,7 +422,7 @@ def chat():
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[get_system_prompt(session["user_id"])] + db_history,
             temperature=0.7,
             max_tokens=500,
@@ -486,7 +483,7 @@ def setup_exercise_routine():
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": parser_system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -585,7 +582,7 @@ def setup_routine_plan():
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[
                 {"role": "system", "content": parser_system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -722,7 +719,7 @@ def generate_mindmap():
         ]
 
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=messages,
             temperature=0.5,
             max_tokens=800,
