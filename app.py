@@ -425,7 +425,7 @@ def chat():
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="llama-3.3-70b-versatile",
             messages=[get_system_prompt(session["user_id"])] + db_history,
             temperature=0.7,
             max_tokens=500,
@@ -486,7 +486,7 @@ def setup_exercise_routine():
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": parser_system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -585,7 +585,7 @@ def setup_routine_plan():
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": parser_system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -722,7 +722,7 @@ def generate_mindmap():
         ]
 
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
+            model="llama-3.3-70b-versatile",
             messages=messages,
             temperature=0.5,
             max_tokens=800,
