@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vale Valor - Login</title>
+
+    <!-- Browser Tab Favicon (Circular Crest with 'V') -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%231d1d1d'/><circle cx='50' cy='50' r='42' fill='%230b140e'/><text x='50%' y='68%' font-family='Georgia, serif' font-size='55' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">
+
+    <!-- Custom Fonts for Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+
     <style>
         body {
             background-color: #0b1712;
@@ -22,6 +31,13 @@
             border: 1px solid #1e3a2b;
             width: 320px;
             text-align: center;
+        }
+        .logo-wrapper {
+            margin-bottom: 20px;
+        }
+        .logo-wrapper svg {
+            width: 130px;
+            height: 130px;
         }
         input {
             width: 100%;
@@ -57,6 +73,22 @@
 </head>
 <body>
     <div class="card">
+        <!-- Vale Valor SVG Logo -->
+        <div class="logo-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <!-- Outer Dark Grey Border -->
+                <circle cx="100" cy="100" r="96" fill="#2b2b2b" />
+                <!-- Inner Dark Greenish Circle -->
+                <circle cx="100" cy="100" r="82" fill="#08100b" />
+                
+                <!-- Main Serif 'V' -->
+                <text x="50%" y="110" font-family="'Playfair Display', Georgia, serif" font-size="95" font-weight="700" fill="#ffffff" text-anchor="middle">V</text>
+                
+                <!-- Cursive 'Vale Valor' Subtext -->
+                <text x="50%" y="146" font-family="'Caveat', 'Brush Script MT', cursive" font-size="32" font-weight="600" fill="#ffffff" text-anchor="middle">Vale Valor</text>
+            </svg>
+        </div>
+
         <h2 id="form-title">Login to Vale Valor</h2>
         <input type="text" id="username" placeholder="Username">
         <input type="password" id="password" placeholder="Password">
@@ -85,7 +117,7 @@
             const password = document.getElementById("password").value.trim();
             const errorDiv = document.getElementById("error-msg");
 
-            errorDiv.textContent = ""; // Clear previous errors
+            errorDiv.textContent = "";
 
             if (!username || !password) {
                 errorDiv.textContent = "Please fill in both username and password.";
@@ -104,7 +136,6 @@
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    // Force a complete page refresh to trigger the main chat UI
                     window.location.href = "/";
                 } else {
                     errorDiv.textContent = data.error || "Login failed. Check your credentials.";
