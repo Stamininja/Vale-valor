@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vale Valor</title>
     <!-- Custom Favicon / Tab Logo -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='Georgia, serif' font-size='105' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='Georgia, serif' font-size='105' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * { box-sizing: border-box; }
 
@@ -226,6 +227,15 @@
         .input-bar { display: flex; gap: 10px; height: 48px; }
         .input-bar input { flex: 1; padding: 12px; border: 1px solid #1e3a2b; border-radius: 8px; background-color: #12241b; color: #ffffff; outline: none; }
         .input-bar button { padding: 0 20px; background-color: #2e6345; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+        /* Chat Disclaimer */
+        .chat-disclaimer {
+            font-size: 0.75rem;
+            color: #6d937c;
+            text-align: center;
+            margin-top: 6px;
+            user-select: none;
+        }
 
         /* EXERCISE & ROUTINE CARDS */
         #exercise-view, #routine-view {
@@ -725,9 +735,10 @@
         <div id="chat-view">
             <div id="chat-box"></div>
             <div class="input-bar">
-                <input type="text" id="user-input" placeholder="Talk to Vale... Vale Valor is coded and designed by Aiden" onkeydown="if(event.key==='Enter') sendMessage()">
+                <input type="text" id="user-input" placeholder="Talk to Vale... " onkeydown="if(event.key==='Enter') sendMessage()">
                 <button onclick="sendMessage()">Send</button>
             </div>
+            <div class="chat-disclaimer">Vale Valor is coded and designed by Aiden. Vale can make mistakes in factual content.</div>
         </div>
 
         <!-- ROUTINE LOG VIEW -->
