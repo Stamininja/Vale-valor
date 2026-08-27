@@ -13,7 +13,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.db")
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-# --- DATABASE SETUP ---
+#DATABASE SETUP
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
@@ -301,7 +301,7 @@ def get_system_prompt(user_id):
         )
     }
 
-# --- USER AUTH ROUTES ---
+#USER AUTH ROUTES
 @app.route("/")
 def home():
     if "user_id" not in session:
@@ -348,7 +348,7 @@ def logout():
     session.clear()
     return jsonify({"success": True})
 
-# --- PROFILE ROUTES ---
+#PROFILE ROUTES
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
     if "user_id" not in session:
@@ -380,7 +380,7 @@ def profile():
             "wellbeing_goals": row[1] if row else ""
         })
 
-# --- THREAD MANAGEMENT ROUTES ---
+#THREAD MANAGEMENT ROUTES
 @app.route("/threads", methods=["GET"])
 def get_threads():
     if "user_id" not in session:
@@ -521,7 +521,7 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- EXERCISE MODE ROUTES ---
+#EXERCISE MODE ROUTES
 @app.route("/exercise/setup", methods=["POST"])
 def setup_exercise_routine():
     if "user_id" not in session:
@@ -623,7 +623,7 @@ def log_daily_exercise():
 
     return jsonify({"success": True})
 
-# --- ROUTINE LOG MODE ROUTES ---
+#ROUTINE LOG MODE ROUTES
 @app.route("/routine/setup", methods=["POST"])
 def setup_routine_plan():
     if "user_id" not in session:
@@ -741,7 +741,7 @@ def rename_thread(thread_id):
 
     return jsonify({"success": True, "title": new_title})
 
-# --- PLANNER / MIND MAP ROUTE ---
+#PLANNER / MIND MAP ROUTE
 @app.route("/generate_mindmap", methods=["POST"])
 def generate_mindmap():
     if "user_id" not in session:
