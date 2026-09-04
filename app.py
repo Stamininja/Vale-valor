@@ -13,6 +13,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "database.db")
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
 #DATABASE SETUP
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
@@ -518,6 +519,57 @@ def chat():
             "timestamp": now_str
         })
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# VOICE MODE ROUTE
+@app.route("/voice_chat", methods=["POST"])
+def voice_chat():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    user_message = data.get("message", "").strip()
+    voice_history = data.get("history", [])
+
+    if not user_message:
+        return jsonify({"error": "Empty transcript"}), 400
+
+    now_str = datetime.now().strftime("%I:%M %p")
+
+    # Adapt system prompt specifically for speech output (concise, direct conversational responses)
+    voice_system_prompt = get_system_prompt(session["user_id"])
+    voice_system_prompt["content"] += (
+        "\n\nVOICE MODE INSTRUCTIONS:\n"
+        "You are currently speaking directly through spoken audio voice mode. "
+        "Keep your response natural, highly conversational, and brief (1 to 3 sentences max) so speech playback sounds realistic and natural. "
+        "Do NOT use markdown, emojis, asterisks, tables, bullet points, or complex punctuation."
+    )
+
+    formatted_history = []
+    for h in voice_history[-6:]:
+        if h.get("role") and h.get("content"):
+            formatted_history.append({"role": h["role"], "content": h["content"]})
+
+    formatted_history.append({"role": "user", "content": user_message})
+
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[voice_system_prompt] + formatted_history,
+            temperature=0.7,
+            max_tokens=250,
+            response_format={"type": "json_object"}
+        )
+
+        raw_json = response.choices[0].message.content.strip()
+        parsed_res = json.loads(raw_json)
+        reply = parsed_res.get("response", "")
+
+        return jsonify({
+            "reply": reply,
+            "timestamp": now_str
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
