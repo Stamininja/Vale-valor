@@ -2051,10 +2051,23 @@
     // --- CHAT SYSTEM ---
     // --- TTS VOICE ENGINE CONTROL ---
     function speakResponse(text) {
-        // STRICT CHECK: Speak ONLY if browser supports TTS AND current mode is explicitly 'voice'
-        if (!('speechSynthesis' in window) || currentMode !== 'voice') return;
+        // FORCE SILENCE: If mode is NOT 'voice', return immediately
+        if (typeof currentMode !== 'undefined' && currentMode !== 'voice') {
+            console.log("TTS Silenced: Not in voice mode (Current mode:", currentMode, ")");
+            return;
+        }
 
+        // DOUBLE-CHECK UI: If the voice modal isn't explicitly visible, do not speak
+        const voiceModal = document.getElementById('voice-modal') || document.getElementById('voice-overlay');
+        if (voiceModal && (voiceModal.style.display === 'none' || voiceModal.classList.contains('hidden'))) {
+            return;
+        }
+
+        if (!('speechSynthesis' in window)) return;
+
+        // Cancel any previous speech queue
         window.speechSynthesis.cancel();
+
         const cleanText = text.replace(/[*#_`~]/g, '');
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.rate = 1.1;
