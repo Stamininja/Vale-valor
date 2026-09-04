@@ -1029,6 +1029,10 @@
     let waveAnimId = null;
     let wavePhase = 0;
 
+    // ACTIVE REQUEST & AUDIO TTS CONTROLLERS
+    let currentAbortController = null;
+    let synth = window.speechSynthesis;
+
     const music = document.getElementById("bg-music");
     const alarm = document.getElementById("alarm-audio");
     const musicBtn = document.getElementById("music-btn");
@@ -2065,6 +2069,17 @@
         const message = inputField.value.trim();
         if (!message || !currentThreadId) return;
 
+        // Cancel active speech immediately when a new message is submitted
+        if (synth && synth.speaking) {
+            synth.cancel();
+        }
+
+        // Abort previous pending fetch request so responses never overlap
+        if (currentAbortController) {
+            currentAbortController.abort();
+        }
+        currentAbortController = new AbortController();
+
         const activeThread = threadsCache.find(t => t.id === currentThreadId);
         if (activeThread && (!activeThread.title || activeThread.title === 'New Session' || activeThread.title === 'New Chat')) {
             await setThreadTitle(currentThreadId, message);
@@ -2080,7 +2095,8 @@
             const res = await fetch("/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: message, thread_id: currentThreadId })
+                body: JSON.stringify({ message: message, thread_id: currentThreadId }),
+                signal: currentAbortController.signal
             });
 
             const data = await res.json();
@@ -2088,6 +2104,7 @@
 
             if (data.reply) {
                 appendMessage("assistant", data.reply, data.timestamp || now);
+                speakResponse(data.reply);
             } else if (data.error) {
                 appendMessage("assistant", "⚠️ Error: " + data.error, now);
             }
@@ -2098,9 +2115,25 @@
             }
         } catch (err) {
             removeTypingIndicator();
-            appendMessage("assistant", "⚠️ Connection error occurred.", now);
-            console.error("Error sending message:", err);
+            if (err.name !== 'AbortError') {
+                appendMessage("assistant", "⚠️ Connection error occurred.", now);
+                console.error("Error sending message:", err);
+            }
+        } finally {
+            currentAbortController = null;
         }
+    }
+
+    function speakResponse(text) {
+        if (!('speechSynthesis' in window)) return;
+
+        synth.cancel();
+        const cleanText = text.replace(/[*#_`~]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.1;
+        utterance.pitch = 1.0;
+
+        synth.speak(utterance);
     }
 
     function handleAiAction(action, context) {
@@ -2207,6 +2240,14 @@
     }
 
     async function selectThread(id) {
+        if (currentAbortController) {
+            currentAbortController.abort();
+            currentAbortController = null;
+        }
+        if (synth) {
+            synth.cancel();
+        }
+
         currentThreadId = id;
         document.querySelectorAll(".thread-item").forEach(el => el.classList.remove("active"));
         const target = document.getElementById(`thread-item-${id}`);
