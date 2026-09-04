@@ -1986,7 +1986,7 @@
     function makeDraggable(element) {
         let active = false;
         let startX, startY, initialX, initialY;
-
+    
         element.onmousedown = (e) => {
             if (e.target.tagName === 'INPUT') return;
             e.stopPropagation();
@@ -1996,16 +1996,18 @@
             startY = e.clientY;
             initialX = element.offsetLeft;
             initialY = element.offsetTop;
-
+    
             document.onmousemove = (ev) => {
                 if (!active) return;
                 const dx = (ev.clientX - startX) / scale;
                 const dy = (ev.clientY - startY) / scale;
                 element.style.left = `${initialX + dx}px`;
                 element.style.top = `${initialY + dy}px`;
-                drawLines();
+                
+                // Re-draws the connection lines dynamically during movement
+                drawLines(); 
             };
-
+    
             document.onmouseup = () => {
                 active = false;
                 document.onmousemove = null;
@@ -2029,7 +2031,7 @@
             const x2 = elB.offsetLeft + elB.offsetWidth / 2;
             const y2 = elB.offsetTop + elB.offsetHeight / 2;
 
-            const line = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
             line.setAttribute("class", "connector");
             line.setAttribute("x1", x1);
             line.setAttribute("y1", y1);
@@ -2041,7 +2043,7 @@
             svg.appendChild(line);
         });
     }
-
+        
     // --- CHAT SYSTEM ---
     function showTypingIndicator() {
         const chatBox = document.getElementById("chat-box");
