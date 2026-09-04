@@ -857,10 +857,10 @@
 
                 <div class="voice-controls">
                     <button class="voice-btn" id="voice-toggle-btn" onclick="toggleVoiceSession()">
-                        🎤 Start Talking
+                        Start Talking
                     </button>
                     <button class="voice-btn" id="voice-mute-btn" onclick="toggleVoiceMute()">
-                        🔇 Mute Mic
+                        Mute
                     </button>
                     <button class="voice-btn voice-btn-exit" onclick="switchMode('chat')">
                         ✕ Exit Voice
@@ -1198,7 +1198,7 @@
         isMuted = false;
         document.getElementById("voice-toggle-btn").innerText = "⏹ Stop Session";
         document.getElementById("voice-toggle-btn").classList.add("voice-btn-active");
-        document.getElementById("voice-mute-btn").innerText = "🔇 Mute Mic";
+        document.getElementById("voice-mute-btn").innerText = "Mute";
         startListening();
     }
 
@@ -1216,12 +1216,12 @@
         isMuted = !isMuted;
         const btn = document.getElementById("voice-mute-btn");
         if (isMuted) {
-            btn.innerText = "🎙️ Unmute Mic";
+            btn.innerText = "Unmute";
             btn.classList.add("voice-btn-active");
             if (recognition) recognition.stop();
             document.getElementById("voice-status").innerText = "Microphone muted";
         } else {
-            btn.innerText = "🔇 Mute Mic";
+            btn.innerText = "Mute";
             btn.classList.remove("voice-btn-active");
             if (isVoiceSessionActive) startListening();
         }
@@ -2049,6 +2049,20 @@
     }
         
     // --- CHAT SYSTEM ---
+    // --- TTS VOICE ENGINE CONTROL ---
+    function speakResponse(text) {
+        // STRICT CHECK: Speak ONLY if browser supports TTS AND current mode is explicitly 'voice'
+        if (!('speechSynthesis' in window) || currentMode !== 'voice') return;
+
+        window.speechSynthesis.cancel();
+        const cleanText = text.replace(/[*#_`~]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.1;
+        utterance.pitch = 1.0;
+
+        window.speechSynthesis.speak(utterance);
+    }
+
     function showTypingIndicator() {
         const chatBox = document.getElementById("chat-box");
         const indicator = document.createElement("div");
@@ -2069,16 +2083,10 @@
         const message = inputField.value.trim();
         if (!message || !currentThreadId) return;
 
-        // Cancel active speech immediately when a new message is submitted
-        if (synth && synth.speaking) {
-            synth.cancel();
+        // Cancel any lingering TTS speech when sending a new message
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
         }
-
-        // Abort previous pending fetch request so responses never overlap
-        if (currentAbortController) {
-            currentAbortController.abort();
-        }
-        currentAbortController = new AbortController();
 
         const activeThread = threadsCache.find(t => t.id === currentThreadId);
         if (activeThread && (!activeThread.title || activeThread.title === 'New Session' || activeThread.title === 'New Chat')) {
@@ -2095,8 +2103,7 @@
             const res = await fetch("/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: message, thread_id: currentThreadId }),
-                signal: currentAbortController.signal
+                body: JSON.stringify({ message: message, thread_id: currentThreadId })
             });
 
             const data = await res.json();
@@ -2104,6 +2111,7 @@
 
             if (data.reply) {
                 appendMessage("assistant", data.reply, data.timestamp || now);
+                // Triggers TTS check (will evaluate currentMode !== 'voice' and stay silent in chat)
                 speakResponse(data.reply);
             } else if (data.error) {
                 appendMessage("assistant", "⚠️ Error: " + data.error, now);
@@ -2115,12 +2123,8 @@
             }
         } catch (err) {
             removeTypingIndicator();
-            if (err.name !== 'AbortError') {
-                appendMessage("assistant", "⚠️ Connection error occurred.", now);
-                console.error("Error sending message:", err);
-            }
-        } finally {
-            currentAbortController = null;
+            appendMessage("assistant", "⚠️ Connection error occurred.", now);
+            console.error("Error sending message:", err);
         }
     }
 
