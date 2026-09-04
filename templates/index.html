@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vale Valor</title>
     <!-- Custom Favicon / Tab Logo -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='Georgia, serif' font-size='105' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='Georgia, serif' font-size='105' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">
+    <script src="[https://cdn.jsdelivr.net/npm/marked/marked.min.js](https://cdn.jsdelivr.net/npm/marked/marked.min.js)"></script>
     <style>
         * { box-sizing: border-box; }
 
@@ -668,6 +668,103 @@
             min-height: 24px;
         }
 
+        /* VOICE MODE VIEW & WAVE ANIMATION */
+        #voice-view {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #08120e;
+            border: 1px solid #1e3a2b;
+            border-radius: 12px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+        .voice-card {
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .voice-wave-container {
+            width: 100%;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 20px 0;
+        }
+        #voice-wave-canvas {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+        .voice-status-text {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #52b788;
+            margin-bottom: 10px;
+            text-align: center;
+            min-height: 30px;
+        }
+        .voice-transcript-box {
+            width: 100%;
+            flex: 1;
+            max-height: 240px;
+            overflow-y: auto;
+            border: 1px solid #1e3a2b;
+            border-radius: 10px;
+            background-color: #12241b;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .voice-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+        .voice-btn {
+            padding: 12px 24px;
+            border-radius: 30px;
+            border: 1px solid #2e6345;
+            background: #12241b;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .voice-btn:hover {
+            background: #2e6345;
+            transform: translateY(-2px);
+        }
+        .voice-btn-active {
+            background: #2e6345;
+            border-color: #52b788;
+            box-shadow: 0 0 12px rgba(82, 183, 136, 0.4);
+        }
+        .voice-btn-exit {
+            background: #5a2d2d;
+            border-color: #722f2f;
+        }
+        .voice-btn-exit:hover {
+            background: #722f2f;
+        }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: #12241b; border: 1px solid #1e3a2b; padding: 20px; border-radius: 10px; width: 320px; display: flex; flex-direction: column; gap: 10px; }
     </style>
@@ -685,6 +782,10 @@
         <button class="sidebar-btn mode-btn active-mode" id="btn-chat-mode" onclick="switchMode('chat')">
             <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
             Vale
+        </button>
+        <button class="sidebar-btn mode-btn" id="btn-voice-mode" onclick="switchMode('voice')">
+            <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/></svg>
+            Voice Mode
         </button>
         <button class="sidebar-btn mode-btn" id="btn-routine-mode" onclick="switchMode('routine')">
             <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
@@ -739,6 +840,33 @@
                 <button onclick="sendMessage()">Send</button>
             </div>
             <div class="chat-disclaimer">Vale Valor is coded and designed by Aiden. Vale can make mistakes in factual content.</div>
+        </div>
+
+        <!-- VOICE MODE VIEW -->
+        <div id="voice-view">
+            <div class="voice-card">
+                <div class="voice-status-text" id="voice-status">Tap "Start Talking" to speak with Vale</div>
+                
+                <div class="voice-wave-container">
+                    <canvas id="voice-wave-canvas"></canvas>
+                </div>
+
+                <div class="voice-transcript-box" id="voice-transcript-box">
+                    <div style="font-size: 0.85rem; color: #6d937c; text-align: center;">Voice conversation transcript will appear here...</div>
+                </div>
+
+                <div class="voice-controls">
+                    <button class="voice-btn" id="voice-toggle-btn" onclick="toggleVoiceSession()">
+                        🎤 Start Talking
+                    </button>
+                    <button class="voice-btn" id="voice-mute-btn" onclick="toggleVoiceMute()">
+                        🔇 Mute Mic
+                    </button>
+                    <button class="voice-btn voice-btn-exit" onclick="switchMode('chat')">
+                        ✕ Exit Voice
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- ROUTINE LOG VIEW -->
@@ -892,6 +1020,15 @@
     let isMeditationRunning = false;
     const fullDashOffset = 691;
 
+    // VOICE MODE VARIABLES
+    let recognition = null;
+    let isVoiceSessionActive = false;
+    let isMuted = false;
+    let isSpeaking = false;
+    let voiceHistory = [];
+    let waveAnimId = null;
+    let wavePhase = 0;
+
     const music = document.getElementById("bg-music");
     const alarm = document.getElementById("alarm-audio");
     const musicBtn = document.getElementById("music-btn");
@@ -932,20 +1069,28 @@
 
     async function initApp() {
         setupCanvasPanZoom();
+        initVoiceRecognition();
+        initVoiceWave();
         await loadThreads();
         await loadProfile();
         updateMeditationDisplay();
     }
 
     function switchMode(mode) {
+        if (currentMode === 'voice' && mode !== 'voice') {
+            stopVoiceSession();
+        }
+
         currentMode = mode;
         document.getElementById("btn-chat-mode").classList.toggle("active-mode", mode === 'chat');
+        document.getElementById("btn-voice-mode").classList.toggle("active-mode", mode === 'voice');
         document.getElementById("btn-routine-mode").classList.toggle("active-mode", mode === 'routine');
         document.getElementById("btn-exercise-mode").classList.toggle("active-mode", mode === 'exercise');
         document.getElementById("btn-planner-mode").classList.toggle("active-mode", mode === 'planner');
         document.getElementById("btn-meditation-mode").classList.toggle("active-mode", mode === 'meditation');
 
         document.getElementById("chat-view").style.display = mode === 'chat' ? 'flex' : 'none';
+        document.getElementById("voice-view").style.display = mode === 'voice' ? 'flex' : 'none';
         document.getElementById("routine-view").style.display = mode === 'routine' ? 'block' : 'none';
         document.getElementById("exercise-view").style.display = mode === 'exercise' ? 'block' : 'none';
         document.getElementById("planner-view").style.display = mode === 'planner' ? 'block' : 'none';
@@ -956,6 +1101,9 @@
         if (mode === 'chat') {
             document.getElementById("app-title").innerText = "Vale Valor";
             if (newBtn) newBtn.innerText = "+ New Session";
+        } else if (mode === 'voice') {
+            document.getElementById("app-title").innerText = "Vale Voice Conversation";
+            resizeVoiceCanvas();
         } else if (mode === 'routine') {
             document.getElementById("app-title").innerText = "Vale Routine Tracker";
             loadRoutinePlanView();
@@ -969,6 +1117,229 @@
         } else if (mode === 'meditation') {
             document.getElementById("app-title").innerText = "Vale Meditation";
         }
+    }
+
+    // --- VOICE MODE IMPLEMENTATION ---
+    function initVoiceRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            document.getElementById("voice-status").innerText = "Speech recognition is not supported in this browser.";
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            if (isVoiceSessionActive) {
+                document.getElementById("voice-status").innerText = "Listening to you...";
+            }
+        };
+
+        recognition.onresult = async (event) => {
+            const transcript = event.results[0][0].transcript;
+            if (!transcript.trim()) return;
+
+            appendVoiceTranscript("user", transcript);
+            document.getElementById("voice-status").innerText = "Vale is thinking...";
+
+            try {
+                const res = await fetch("/voice_chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: transcript, history: voiceHistory })
+                });
+
+                const data = await res.json();
+                if (data.reply) {
+                    appendVoiceTranscript("assistant", data.reply);
+                    voiceHistory.push({ role: "user", content: transcript });
+                    voiceHistory.push({ role: "assistant", content: data.reply });
+                    speakValeResponse(data.reply);
+                } else {
+                    document.getElementById("voice-status").innerText = "Error getting response.";
+                }
+            } catch (err) {
+                console.error("Voice API error:", err);
+                document.getElementById("voice-status").innerText = "Connection error.";
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.warn("Speech recognition event:", event.error);
+            if (isVoiceSessionActive && !isSpeaking && !isMuted) {
+                setTimeout(() => { startListening(); }, 1000);
+            }
+        };
+
+        recognition.onend = () => {
+            if (isVoiceSessionActive && !isSpeaking && !isMuted) {
+                startListening();
+            }
+        };
+    }
+
+    function toggleVoiceSession() {
+        if (isVoiceSessionActive) {
+            stopVoiceSession();
+        } else {
+            startVoiceSession();
+        }
+    }
+
+    function startVoiceSession() {
+        isVoiceSessionActive = true;
+        isMuted = false;
+        document.getElementById("voice-toggle-btn").innerText = "⏹ Stop Session";
+        document.getElementById("voice-toggle-btn").classList.add("voice-btn-active");
+        document.getElementById("voice-mute-btn").innerText = "🔇 Mute Mic";
+        startListening();
+    }
+
+    function stopVoiceSession() {
+        isVoiceSessionActive = false;
+        if (recognition) recognition.stop();
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+        document.getElementById("voice-status").innerText = "Session paused. Tap 'Start Talking' to resume.";
+        document.getElementById("voice-toggle-btn").innerText = "🎤 Start Talking";
+        document.getElementById("voice-toggle-btn").classList.remove("voice-btn-active");
+    }
+
+    function toggleVoiceMute() {
+        isMuted = !isMuted;
+        const btn = document.getElementById("voice-mute-btn");
+        if (isMuted) {
+            btn.innerText = "🎙️ Unmute Mic";
+            btn.classList.add("voice-btn-active");
+            if (recognition) recognition.stop();
+            document.getElementById("voice-status").innerText = "Microphone muted";
+        } else {
+            btn.innerText = "🔇 Mute Mic";
+            btn.classList.remove("voice-btn-active");
+            if (isVoiceSessionActive) startListening();
+        }
+    }
+
+    function startListening() {
+        if (!recognition || isMuted || isSpeaking) return;
+        try {
+            recognition.start();
+        } catch (e) {
+            // Already started or restarting
+        }
+    }
+
+    function speakValeResponse(text) {
+        if (!('speechSynthesis' in window)) {
+            if (isVoiceSessionActive) startListening();
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => {
+            isSpeaking = true;
+            document.getElementById("voice-status").innerText = "Vale is speaking...";
+        };
+
+        utterance.onend = () => {
+            isSpeaking = false;
+            if (isVoiceSessionActive && !isMuted) {
+                document.getElementById("voice-status").innerText = "Listening to you...";
+                startListening();
+            } else {
+                document.getElementById("voice-status").innerText = "Ready";
+            }
+        };
+
+        utterance.onerror = () => {
+            isSpeaking = false;
+            if (isVoiceSessionActive && !isMuted) startListening();
+        };
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function appendVoiceTranscript(role, text) {
+        const box = document.getElementById("voice-transcript-box");
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `msg ${role}`;
+        msgDiv.style.maxWidth = "85%";
+        msgDiv.innerText = text;
+        box.appendChild(msgDiv);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function initVoiceWave() {
+        const canvas = document.getElementById("voice-wave-canvas");
+        resizeVoiceCanvas();
+        window.addEventListener("resize", resizeVoiceCanvas);
+        animateVoiceWave();
+    }
+
+    function resizeVoiceCanvas() {
+        const canvas = document.getElementById("voice-wave-canvas");
+        if (!canvas) return;
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    }
+
+    function animateVoiceWave() {
+        const canvas = document.getElementById("voice-wave-canvas");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        wavePhase += 0.05;
+
+        let amplitude = 12;
+        let frequency = 0.015;
+        let speed = wavePhase;
+
+        if (isSpeaking) {
+            amplitude = 35;
+            frequency = 0.025;
+        } else if (isVoiceSessionActive && !isMuted) {
+            amplitude = 22;
+            frequency = 0.02;
+        } else {
+            amplitude = 6;
+            frequency = 0.01;
+        }
+
+        const lines = [
+            { color: "rgba(82, 183, 136, 0.8)", offset: 0, ampMult: 1 },
+            { color: "rgba(46, 99, 69, 0.6)", offset: 2, ampMult: 0.7 },
+            { color: "rgba(141, 174, 154, 0.4)", offset: 4, ampMult: 0.4 }
+        ];
+
+        lines.forEach(line => {
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = line.color;
+
+            for (let x = 0; x < width; x++) {
+                const y = height / 2 + Math.sin(x * frequency + speed + line.offset) * (amplitude * line.ampMult);
+                if (x === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        });
+
+        waveAnimId = requestAnimationFrame(animateVoiceWave);
     }
 
     function togglePlannerView(style) {
@@ -1658,7 +2029,7 @@
             const x2 = elB.offsetLeft + elB.offsetWidth / 2;
             const y2 = elB.offsetTop + elB.offsetHeight / 2;
 
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            const line = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
             line.setAttribute("class", "connector");
             line.setAttribute("x1", x1);
             line.setAttribute("y1", y1);
@@ -1744,240 +2115,111 @@
                     }
                 }
                 break;
-
             case "open_routine":
                 switchMode("routine");
-                if (context.prompt) {
-                    const routineInput = document.getElementById("routine-plan-prompt-input");
-                    if (routineInput) {
-                        routineInput.value = context.prompt;
-                        submitRoutinePlanSetup();
-                    }
-                }
                 break;
-
             case "open_exercise":
                 switchMode("exercise");
-                if (context.prompt) {
-                    const exerciseInput = document.getElementById("routine-prompt-input");
-                    if (exerciseInput) {
-                        exerciseInput.value = context.prompt;
-                        submitRoutineSetup();
-                    }
-                }
                 break;
-
             case "open_meditation":
                 switchMode("meditation");
-                if (typeof startMeditation === 'function') {
-                    startMeditation();
-                }
-                break;
-
-            default:
-                console.log("Unknown action context:", action);
                 break;
         }
     }
 
-    function appendMessage(role, content, timestamp) {
-        if (role !== 'user' && role !== 'assistant' && role !== 'system') return;
-
+    function appendMessage(role, text, time) {
         const chatBox = document.getElementById("chat-box");
-        const div = document.createElement("div");
-        div.className = "msg " + role;
-        const parsedContent = role === "assistant" ? marked.parse(content || "") : (content || "");
-        const timeTag = timestamp ? `<div class="timestamp">${timestamp}</div>` : "";
-        div.innerHTML = parsedContent + timeTag;
-        chatBox.appendChild(div);
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `msg ${role}`;
+        
+        let parsedText = text;
+        try {
+            if (role === 'assistant') {
+                const jsonCheck = JSON.parse(text);
+                parsedText = jsonCheck.response || text;
+            }
+        } catch(e) {}
+
+        const formattedHtml = typeof marked !== 'undefined' ? marked.parse(parsedText) : parsedText;
+
+        msgDiv.innerHTML = `<div>${formattedHtml}</div><div class="timestamp">${time}</div>`;
+        chatBox.appendChild(msgDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
-        return div;
     }
 
-    // --- SESSIONS AND THREAD SWITCHING ---
+    // --- THREAD & PROFILE MANAGEMENT ---
     async function loadThreads() {
         try {
             const res = await fetch("/threads");
-            if (res.ok) {
-                const data = await res.json();
-                threadsCache = data.threads || [];
-                renderSidebarList(threadsCache);
+            const data = await res.json();
+            threadsCache = data.threads || [];
 
-                if (!currentThreadId && threadsCache.length > 0) {
-                    await switchThread(threadsCache[0].id);
-                } else if (threadsCache.length === 0) {
-                    await createNewThread();
-                }
+            const list = document.getElementById("thread-list");
+            list.innerHTML = "";
+
+            if (threadsCache.length === 0) {
+                await createNewThread();
+                return;
             }
-        } catch(err) {
-            console.error("Failed to load threads:", err);
-        }
-    }
 
-    async function setThreadTitle(id, title) {
-        const targetThread = threadsCache.find(t => t.id === id);
-        if (targetThread) targetThread.title = title;
-        renderSidebarList(threadsCache);
+            threadsCache.forEach(t => {
+                const div = document.createElement("div");
+                div.className = `thread-item ${t.id === currentThreadId ? 'active' : ''}`;
+                div.id = `thread-item-${t.id}`;
 
-        try {
-            await fetch(`/threads/${id}/rename`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: title })
+                div.innerHTML = `
+                    <span class="thread-title" id="thread-title-${t.id}" onclick="selectThread(${t.id})">${t.title}</span>
+                    <div class="thread-actions">
+                        <span class="action-btn" onclick="startRenameThread(${t.id}, event)" title="Rename">
+                            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        </span>
+                        <span class="action-btn" onclick="deleteThread(${t.id}, event)" title="Delete">
+                            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        </span>
+                    </div>
+                `;
+                list.appendChild(div);
             });
+
+            if (!currentThreadId && threadsCache.length > 0) {
+                selectThread(threadsCache[0].id);
+            }
         } catch(err) {
-            console.error("Failed to set thread title:", err);
+            console.error("Error loading threads:", err);
         }
-    }
-
-    function renderSidebarList(threads) {
-        const list = document.getElementById("thread-list");
-        list.innerHTML = "";
-
-        threads.forEach(t => {
-            const item = document.createElement("div");
-            item.className = "thread-item" + (t.id === currentThreadId ? " active" : "");
-            
-            item.onclick = (e) => {
-                if (e.target.closest('.thread-actions') || e.target.tagName === 'INPUT') return;
-                switchThread(t.id);
-            };
-
-            const titleSpan = document.createElement("span");
-            titleSpan.className = "thread-title";
-            titleSpan.innerText = t.title || 'New Session';
-
-            const actionsDiv = document.createElement("div");
-            actionsDiv.className = "thread-actions";
-            
-            const editBtn = document.createElement("span");
-            editBtn.className = "action-btn";
-            editBtn.title = "Rename Session";
-            editBtn.innerHTML = `
-                <svg viewBox="0 0 24 24">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
-            `;
-            editBtn.onclick = (e) => {
-                e.stopPropagation();
-                enableThreadRename(t.id, titleSpan);
-            };
-
-            const deleteBtn = document.createElement("span");
-            deleteBtn.className = "action-btn";
-            deleteBtn.title = "Delete Session";
-            deleteBtn.innerHTML = `
-                <svg viewBox="0 0 24 24">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-            `;
-            deleteBtn.onclick = (e) => {
-                deleteThread(e, t.id);
-            };
-
-            actionsDiv.appendChild(editBtn);
-            actionsDiv.appendChild(deleteBtn);
-
-            item.appendChild(titleSpan);
-            item.appendChild(actionsDiv);
-            list.appendChild(item);
-        });
-    }
-
-    function enableThreadRename(id, element) {
-        if (element.querySelector('input')) return;
-        
-        const currentTitle = element.innerText;
-        element.innerText = "";
-
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "rename-input";
-        input.value = currentTitle;
-
-        input.onclick = (e) => e.stopPropagation();
-        input.onmousedown = (e) => e.stopPropagation();
-
-        let isSaved = false;
-
-        const saveRename = async () => {
-            if (isSaved) return;
-            isSaved = true;
-
-            const newTitle = input.value.trim() || currentTitle;
-            element.innerText = newTitle;
-
-            const targetThread = threadsCache.find(t => t.id === id);
-            if (targetThread) targetThread.title = newTitle;
-
-            if (newTitle !== currentTitle) {
-                try {
-                    await fetch(`/threads/${id}/rename`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ title: newTitle })
-                    });
-                } catch(err) {
-                    console.error("Failed to rename thread:", err);
-                    element.innerText = currentTitle;
-                    if (targetThread) targetThread.title = currentTitle;
-                }
-            }
-        };
-
-        input.onblur = saveRename;
-
-        input.onkeydown = async (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                input.blur();
-            }
-            if (e.key === 'Escape') {
-                isSaved = true;
-                element.innerText = currentTitle;
-            }
-        };
-
-        element.appendChild(input);
-
-        setTimeout(() => {
-            input.focus();
-            input.select();
-        }, 50);
     }
 
     async function createNewThread() {
         try {
             const res = await fetch("/threads/new", { method: "POST" });
-            if (res.ok) {
-                const data = await res.json();
+            const data = await res.json();
+
+            if (data.thread_id) {
                 currentThreadId = data.thread_id;
                 await loadThreads();
-                await switchThread(currentThreadId);
+                clearChatAndPlanner();
             }
         } catch(err) {
-            console.error("Failed to create new thread:", err);
+            console.error("Error creating thread:", err);
         }
     }
 
-    async function switchThread(id) {
+    async function selectThread(id) {
         currentThreadId = id;
-        
-        document.querySelectorAll('.thread-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        const threadElements = document.querySelectorAll('.thread-item');
-        threadsCache.forEach((t, idx) => {
-            if (t.id === id && threadElements[idx]) {
-                threadElements[idx].classList.add('active');
-            }
-        });
+        document.querySelectorAll(".thread-item").forEach(el => el.classList.remove("active"));
+        const target = document.getElementById(`thread-item-${id}`);
+        if (target) target.classList.add("active");
 
+        clearChatAndPlanner();
+        await loadThreadHistory(id);
+    }
+
+    function clearChatAndPlanner() {
         document.getElementById("chat-box").innerHTML = "";
-        
         document.querySelectorAll('.map-node').forEach(el => el.remove());
         document.querySelectorAll('.treemap-group-node').forEach(el => el.remove());
         document.querySelectorAll('.prompt-divider').forEach(el => el.remove());
+        
         const svg = document.getElementById("svg-canvas");
         if (svg) svg.querySelectorAll('.connector').forEach(c => c.remove());
 
@@ -1986,118 +2228,155 @@
         historyMapCache = [];
         currentY = 500;
         mapCounter = 0;
+    }
 
+    async function loadThreadHistory(id) {
         try {
             const res = await fetch(`/history/${id}`);
-            if (res.ok) {
-                const data = await res.json();
-                let pendingPrompt = "";
-                let pendingTimestamp = "";
+            const data = await res.json();
+            const history = data.history || [];
 
-                const historyList = data.history || data.messages || [];
-
-                historyList.forEach(msg => {
-                    const rawRole = msg.role || msg.sender;
-                    const content = msg.content || msg.text || msg.message;
-
-                    let role = rawRole;
-                    if (role === 'bot' || role === 'ai') role = 'assistant';
-
-                    if (role === 'user') {
-                        pendingPrompt = content;
-                        pendingTimestamp = msg.timestamp || "";
-                        appendMessage("user", content, msg.timestamp);
-                    } else if (role === 'assistant') {
-                        let textContent = content;
-                        try {
-                            const parsed = JSON.parse(content);
-                            textContent = parsed.response || content;
-                        } catch(e) {}
-                        appendMessage("assistant", textContent, msg.timestamp);
-                    } else if (role === 'mindmap') {
-                        try {
-                            const parsed = typeof content === 'string' ? JSON.parse(content) : content;
-                            historyMapCache.push({ data: parsed, promptText: pendingPrompt, timestamp: pendingTimestamp });
-                            if (plannerViewStyle === 'treemap') {
-                                renderTreemapData(parsed, pendingPrompt, pendingTimestamp);
-                            } else {
-                                renderMindMapData(parsed, pendingPrompt, pendingTimestamp);
-                            }
-                        } catch(e) {
-                            console.error("Invalid mind map JSON in history:", e);
-                        }
+            history.forEach(item => {
+                if (item.role === 'user' || item.role === 'assistant') {
+                    appendMessage(item.role, item.content, item.timestamp || "");
+                } else if (item.role === 'mindmap') {
+                    const parsedData = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
+                    historyMapCache.push({ data: parsedData, promptText: "", timestamp: item.timestamp });
+                    if (plannerViewStyle === 'treemap') {
+                        renderTreemapData(parsedData, "", item.timestamp);
+                    } else {
+                        renderMindMapData(parsedData, "", item.timestamp);
                     }
-                });
-            }
+                }
+            });
         } catch(err) {
-            console.error("Failed to load history:", err);
+            console.error("Error loading history:", err);
         }
     }
 
-    async function deleteThread(e, id) {
-        e.stopPropagation();
+    function startRenameThread(id, event) {
+        event.stopPropagation();
+        const titleSpan = document.getElementById(`thread-title-${id}`);
+        if (!titleSpan) return;
+
+        const currentTitle = titleSpan.innerText;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "rename-input";
+        input.value = currentTitle;
+
+        input.onclick = (e) => e.stopPropagation();
+        input.onblur = async () => {
+            const newTitle = input.value.trim() || currentTitle;
+            await setThreadTitle(id, newTitle);
+        };
+        input.onkeydown = async (e) => {
+            if (e.key === 'Enter') {
+                const newTitle = input.value.trim() || currentTitle;
+                await setThreadTitle(id, newTitle);
+            }
+        };
+
+        titleSpan.replaceWith(input);
+        input.focus();
+        input.select();
+    }
+
+    async function setThreadTitle(id, newTitle) {
         try {
-            await fetch(`/threads/${id}/delete`, { method: "DELETE" });
-            if (currentThreadId === id) currentThreadId = null;
-            await loadThreads();
+            const res = await fetch(`/threads/${id}/rename`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: newTitle })
+            });
+            const data = await res.json();
+            if (data.success) {
+                await loadThreads();
+            }
         } catch(err) {
-            console.error("Failed to delete thread:", err);
+            console.error("Error renaming thread:", err);
+        }
+    }
+
+    async function deleteThread(id, event) {
+        event.stopPropagation();
+        if (!confirm("Delete this session?")) return;
+
+        try {
+            const res = await fetch(`/threads/${id}/delete`, { method: "DELETE" });
+            const data = await res.json();
+
+            if (data.success) {
+                if (currentThreadId === id) currentThreadId = null;
+                await loadThreads();
+            }
+        } catch(err) {
+            console.error("Error deleting thread:", err);
         }
     }
 
     async function deleteAllThreads() {
-        if (!confirm("Delete all sessions?")) return;
+        if (!confirm("Are you sure you want to delete ALL chat sessions?")) return;
+
         try {
-            await fetch("/threads/delete_all", { method: "DELETE" });
-            currentThreadId = null;
-            document.getElementById("chat-box").innerHTML = "";
-            await loadThreads();
+            const res = await fetch("/threads/delete_all", { method: "DELETE" });
+            const data = await res.json();
+
+            if (data.success) {
+                currentThreadId = null;
+                await loadThreads();
+            }
         } catch(err) {
-            console.error("Failed to delete all threads:", err);
+            console.error("Error deleting all threads:", err);
         }
     }
 
-    // --- PROFILE MANAGEMENT ---
+    // --- PROFILE MODAL & USER SETTINGS ---
+    function openProfileModal() {
+        document.getElementById("profile-modal").style.display = "flex";
+    }
+
+    function closeProfileModal() {
+        document.getElementById("profile-modal").style.display = "none";
+    }
+
     async function loadProfile() {
         try {
             const res = await fetch("/profile");
-            if (res.ok) {
-                const data = await res.json();
-                document.getElementById("pref-name").value = data.preferred_name || "";
-                document.getElementById("wellbeing-goal").value = data.wellbeing_goals || "";
-            }
+            const data = await res.json();
+
+            if (data.preferred_name) document.getElementById("pref-name").value = data.preferred_name;
+            if (data.wellbeing_goals) document.getElementById("wellbeing-goal").value = data.wellbeing_goals;
         } catch(err) {
-            console.error("Failed to load profile:", err);
+            console.error("Error loading profile:", err);
         }
     }
 
     async function saveProfile() {
-        const preferred_name = document.getElementById("pref-name").value.trim();
-        const wellbeing_goals = document.getElementById("wellbeing-goal").value.trim();
+        const name = document.getElementById("pref-name").value.trim();
+        const goals = document.getElementById("wellbeing-goal").value.trim();
+
         try {
-            await fetch("/profile", {
+            const res = await fetch("/profile", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ preferred_name, wellbeing_goals })
+                body: JSON.stringify({ preferred_name: name, wellbeing_goals: goals })
             });
-            closeProfileModal();
+
+            const data = await res.json();
+            if (data.success) {
+                alert("Personal context updated!");
+                closeProfileModal();
+            }
         } catch(err) {
-            console.error("Failed to save profile:", err);
+            console.error("Error saving profile:", err);
         }
     }
-
-    function openProfileModal() { document.getElementById("profile-modal").style.display = "flex"; }
-    function closeProfileModal() { document.getElementById("profile-modal").style.display = "none"; }
 
     async function logout() {
-        try {
-            await fetch("/logout", { method: "POST" });
-        } catch(err) {
-            console.error("Logout request failed:", err);
-        } finally {
-            window.location.reload();
-        }
+        await fetch("/logout", { method: "POST" });
+        window.location.reload();
     }
-</script>
+    </script>
 </body>
 </html>
