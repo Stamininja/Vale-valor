@@ -1081,6 +1081,11 @@
     }
 
     function switchMode(mode) {
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        isSpeaking = false;
+
         if (currentMode === 'voice' && mode !== 'voice') {
             stopVoiceSession();
         }
@@ -1161,7 +1166,10 @@
                     appendVoiceTranscript("assistant", data.reply);
                     voiceHistory.push({ role: "user", content: transcript });
                     voiceHistory.push({ role: "assistant", content: data.reply });
-                    speakValeResponse(data.reply);
+                    
+                    if (currentMode === 'voice') {
+                        speakValeResponse(data.reply);
+                    }
                 } else {
                     document.getElementById("voice-status").innerText = "Error getting response.";
                 }
@@ -1173,13 +1181,13 @@
 
         recognition.onerror = (event) => {
             console.warn("Speech recognition event:", event.error);
-            if (isVoiceSessionActive && !isSpeaking && !isMuted) {
+            if (isVoiceSessionActive && !isSpeaking && !isMuted && currentMode === 'voice') {
                 setTimeout(() => { startListening(); }, 1000);
             }
         };
 
         recognition.onend = () => {
-            if (isVoiceSessionActive && !isSpeaking && !isMuted) {
+            if (isVoiceSessionActive && !isSpeaking && !isMuted && currentMode === 'voice') {
                 startListening();
             }
         };
@@ -1205,7 +1213,7 @@
     function stopVoiceSession() {
         isVoiceSessionActive = false;
         if (recognition) recognition.stop();
-        window.speechSynthesis.cancel();
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         isSpeaking = false;
         document.getElementById("voice-status").innerText = "Session paused. Tap 'Start Talking' to resume.";
         document.getElementById("voice-toggle-btn").innerText = "🎤 Start Talking";
@@ -1223,12 +1231,12 @@
         } else {
             btn.innerText = "Mute";
             btn.classList.remove("voice-btn-active");
-            if (isVoiceSessionActive) startListening();
+            if (isVoiceSessionActive && currentMode === 'voice') startListening();
         }
     }
 
     function startListening() {
-        if (!recognition || isMuted || isSpeaking) return;
+        if (!recognition || isMuted || isSpeaking || currentMode !== 'voice') return;
         try {
             recognition.start();
         } catch (e) {
@@ -1237,35 +1245,48 @@
     }
 
     function speakValeResponse(text) {
+        if (currentMode !== 'voice') {
+            return;
+        }
+
         if (!('speechSynthesis' in window)) {
-            if (isVoiceSessionActive) startListening();
+            if (isVoiceSessionActive && currentMode === 'voice') startListening();
             return;
         }
 
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Strip markdown syntax if present to format natural prose for voice speech
+        const cleanText = text.replace(/[*_#`~]/g, '');
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = 'en-US';
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
 
         utterance.onstart = () => {
+            if (currentMode !== 'voice') {
+                window.speechSynthesis.cancel();
+                isSpeaking = false;
+                return;
+            }
             isSpeaking = true;
             document.getElementById("voice-status").innerText = "Vale is speaking...";
         };
 
         utterance.onend = () => {
             isSpeaking = false;
-            if (isVoiceSessionActive && !isMuted) {
+            if (isVoiceSessionActive && !isMuted && currentMode === 'voice') {
                 document.getElementById("voice-status").innerText = "Listening to you...";
                 startListening();
-            } else {
+            } else if (currentMode === 'voice') {
                 document.getElementById("voice-status").innerText = "Ready";
             }
         };
 
         utterance.onerror = () => {
             isSpeaking = false;
-            if (isVoiceSessionActive && !isMuted) startListening();
+            if (isVoiceSessionActive && !isMuted && currentMode === 'voice') startListening();
         };
 
         window.speechSynthesis.speak(utterance);
@@ -1727,571 +1748,178 @@
         });
 
         window.addEventListener("mouseup", () => { isPanning = false; });
+
+        view.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+            zoomCanvasAt(zoomFactor, e.clientX, e.clientY);
+        });
     }
 
     function zoomCanvas(delta) {
-        const oldScale = scale;
-        scale = Math.min(Math.max(0.3, scale + delta), 2.0);
+        const view = document.getElementById("planner-view");
+        const rect = view.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        zoomCanvasAt(1 + delta, centerX, centerY);
+    }
+
+    function zoomCanvasAt(factor, clientX, clientY) {
+        const view = document.getElementById("planner-view");
+        const rect = view.getBoundingClientRect();
         
-        const plannerView = document.getElementById("planner-view");
-        const centerX = plannerView.clientWidth / 2;
-        const centerY = plannerView.clientHeight / 2;
+        const mouseX = clientX - rect.left;
+        const mouseY = clientY - rect.top;
 
-        panX = centerX - (centerX - panX) * (scale / oldScale);
-        panY = centerY - (centerY - panY) * (scale / oldScale);
+        const newScale = Math.min(Math.max(scale * factor, 0.2), 2.5);
+        
+        panX = mouseX - (mouseX - panX) * (newScale / scale);
+        panY = mouseY - (mouseY - panY) * (newScale / scale);
+        scale = newScale;
 
         updateTransform();
-    }
-
-    function centerOnCoords(x, y) {
-        const plannerView = document.getElementById("planner-view");
-        panX = -(x * scale - plannerView.clientWidth / 2);
-        panY = -(y * scale - plannerView.clientHeight / 2);
-        updateTransform();
-    }
-
-    function reCenterLatest() {
-        centerOnCoords(lastMapCenterX, lastMapCenterY);
     }
 
     function updateTransform() {
         const world = document.getElementById("canvas-world");
-        world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-    }
-
-    // --- PLANNER GENERATION & DUAL VIEW RENDERING ---
-    async function generateMindMap() {
-        const input = document.getElementById("planner-input");
-        const promptText = input.value.trim();
-        if (!promptText || !currentThreadId) return;
-
-        const activeThread = threadsCache.find(t => t.id === currentThreadId);
-        if (activeThread && (!activeThread.title || activeThread.title === 'New Session' || activeThread.title === 'New Chat')) {
-            await setThreadTitle(currentThreadId, promptText);
-        }
-
-        input.value = "Updating plan...";
-        input.disabled = true;
-
-        try {
-            const res = await fetch("/generate_mindmap", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ topic: promptText, thread_id: currentThreadId })
-            });
-            const data = await res.json();
-            
-            if (data.success) {
-                const parsedData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
-                historyMapCache.push({ data: parsedData, promptText, timestamp: data.timestamp });
-                if (plannerViewStyle === 'treemap') {
-                    renderTreemapData(parsedData, promptText, data.timestamp);
-                } else {
-                    renderMindMapData(parsedData, promptText, data.timestamp);
-                }
-            }
-        } catch (err) {
-            console.error("Failed to update mind map:", err);
-        } finally {
-            input.value = "";
-            input.disabled = false;
+        if (world) {
+            world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
         }
     }
 
-    function renderPromptDivider(promptText, timestamp, centerX, centerY) {
-        if (!promptText) return;
-        const world = document.getElementById("canvas-world");
-        const divider = document.createElement("div");
-        divider.className = "prompt-divider";
-        divider.style.cssText = `
-            position: absolute;
-            left: ${centerX - 300}px;
-            top: ${centerY - 420}px;
-            width: 600px;
-            background: #12241b;
-            border: 1px solid #8dae9a;
-            border-radius: 8px;
-            padding: 10px 16px;
-            color: #e2f1e8;
-            font-weight: bold;
-            text-align: center;
-            z-index: 5;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        `;
-        divider.innerHTML = `💬 ${promptText} <span style="font-size: 0.75rem; color: #6d937c; display: block; margin-top: 4px;">${timestamp}</span>`;
-        world.appendChild(divider);
+    function centerOn(x, y) {
+        const view = document.getElementById("planner-view");
+        const viewWidth = view.clientWidth;
+        const viewHeight = view.clientHeight;
+
+        scale = 0.85;
+        panX = (viewWidth / 2) - (x * scale);
+        panY = (viewHeight / 2) - (y * scale);
+        updateTransform();
     }
 
-    // --- MIND MAP RENDERING ---
-    function renderMindMapData(data, promptText = "", timestamp = "") {
-        mapCounter++;
-        const mapTag = `m${mapCounter}`;
-        const centerX = 2500;
-        const centerY = currentY;
-
-        lastMapCenterX = centerX;
-        lastMapCenterY = centerY;
-
-        renderPromptDivider(promptText, timestamp, centerX, centerY);
-
-        const subjectNode = createNodeElement(`${mapTag}-subject`, data.subject || "Topic", centerX, centerY, true);
-        nodesData.push(subjectNode);
-
-        const topics = data.topics || [];
-        const topicCount = topics.length;
-
-        topics.forEach((topic, i) => {
-            const angle = (i / (topicCount || 1)) * (2 * Math.PI);
-            const topicRadius = 320;
-            const tx = centerX + Math.cos(angle) * topicRadius;
-            const ty = centerY + Math.sin(angle) * topicRadius;
-
-            const topicTitle = typeof topic === 'object' ? topic.title : topic;
-            const topicNode = createNodeElement(`${mapTag}-topic-${i}`, topicTitle || "Subtopic", tx, ty);
-            nodesData.push(topicNode);
-            connections.push({ from: subjectNode.id, to: topicNode.id });
-
-            const objects = (typeof topic === 'object' && topic.objects) ? topic.objects : [];
-            const objCount = objects.length;
-
-            objects.forEach((objTitle, j) => {
-                const spread = 0.45;
-                const subAngle = angle + ((j - (objCount - 1) / 2) * spread);
-                const objRadius = 220;
-                const ox = tx + Math.cos(subAngle) * objRadius;
-                const oy = ty + Math.sin(subAngle) * objRadius;
-
-                const objNode = createNodeElement(`${mapTag}-obj-${i}-${j}`, objTitle, ox, oy);
-                nodesData.push(objNode);
-                connections.push({ from: topicNode.id, to: objNode.id });
-            });
-        });
-
-        centerOnCoords(centerX, centerY);
-        currentY += 1200;
-        setTimeout(drawLines, 50);
+    function reCenterLatest() {
+        centerOn(lastMapCenterX, lastMapCenterY);
     }
 
-    // --- TREEMAP RENDERING ---
-    function renderTreemapData(data, promptText = "", timestamp = "") {
-        mapCounter++;
-        const world = document.getElementById("canvas-world");
-        const centerX = 2500;
-        const centerY = currentY;
-
-        lastMapCenterX = centerX;
-        lastMapCenterY = centerY;
-
-        renderPromptDivider(promptText, timestamp, centerX, centerY);
-
-        const groupWidth = 640;
-        const groupHeight = 420;
-        const groupX = centerX - groupWidth / 2;
-        const groupY = centerY - groupHeight / 2;
-
-        const mainGroup = document.createElement("div");
-        mainGroup.className = "treemap-group-node subject-treemap";
-        mainGroup.style.left = `${groupX}px`;
-        mainGroup.style.top = `${groupY}px`;
-        mainGroup.style.width = `${groupWidth}px`;
-        mainGroup.style.minHeight = `${groupHeight}px`;
-
-        const header = document.createElement("div");
-        header.className = "treemap-header";
-        header.innerText = data.subject || "Subject Plan";
-        header.onclick = (e) => {
-            e.stopPropagation();
-            centerOnCoords(centerX, centerY);
-        };
-        header.ondblclick = (e) => makeEditable(header, e);
-
-        const grid = document.createElement("div");
-        grid.className = "treemap-container-grid";
-
-        (data.topics || []).forEach((topic) => {
-            const childBox = document.createElement("div");
-            childBox.className = "treemap-child-box";
-
-            const childTitle = document.createElement("div");
-            childTitle.className = "treemap-child-title";
-            childTitle.innerText = typeof topic === 'object' ? topic.title : topic;
-            childTitle.ondblclick = (e) => makeEditable(childTitle, e);
-            childBox.appendChild(childTitle);
-
-            const objects = (typeof topic === 'object' && topic.objects) ? topic.objects : [];
-            objects.forEach(objTitle => {
-                const leaf = document.createElement("div");
-                leaf.className = "treemap-leaf-item";
-                leaf.innerText = objTitle;
-                leaf.ondblclick = (e) => makeEditable(leaf, e);
-                childBox.appendChild(leaf);
-            });
-
-            grid.appendChild(childBox);
-        });
-
-        mainGroup.appendChild(header);
-        mainGroup.appendChild(grid);
-        makeDraggable(mainGroup);
-
-        world.appendChild(mainGroup);
-
-        centerOnCoords(centerX, centerY);
-        currentY += 1200;
-    }
-
-    function makeEditable(element, e) {
-        e.stopPropagation();
-        if (element.querySelector('input')) return;
-
-        const currentText = element.innerText;
-        element.innerText = "";
-
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "edit-input";
-        input.value = currentText;
-
-        const saveEdit = () => {
-            element.innerText = input.value.trim() || currentText;
-        };
-
-        input.onblur = saveEdit;
-        input.onkeydown = (ev) => { if (ev.key === 'Enter') saveEdit(); };
-
-        element.appendChild(input);
-        input.focus();
-        input.select();
-    }
-
-    function createNodeElement(id, text, x, y, isSubject = false) {
-        const world = document.getElementById("canvas-world");
-        const div = document.createElement("div");
-        div.id = id;
-        div.className = "map-node" + (isSubject ? " subject-node" : "");
-        div.style.left = `${x}px`;
-        div.style.top = `${y}px`;
-        div.innerText = text;
-
-        if (isSubject) {
-            div.onclick = (e) => {
-                e.stopPropagation();
-                centerOnCoords(x, y);
-            };
-        }
-
-        div.ondblclick = (e) => makeEditable(div, e);
-
-        makeDraggable(div);
-        world.appendChild(div);
-        return { id, element: div };
-    }
-
-    function makeDraggable(element) {
-        let active = false;
-        let startX, startY, initialX, initialY;
-    
-        element.onmousedown = (e) => {
-            if (e.target.tagName === 'INPUT') return;
-            e.stopPropagation();
-            active = true;
-            
-            startX = e.clientX;
-            startY = e.clientY;
-            initialX = element.offsetLeft;
-            initialY = element.offsetTop;
-    
-            document.onmousemove = (ev) => {
-                if (!active) return;
-                const dx = (ev.clientX - startX) / scale;
-                const dy = (ev.clientY - startY) / scale;
-                element.style.left = `${initialX + dx}px`;
-                element.style.top = `${initialY + dy}px`;
-                
-                // Re-draws the connection lines dynamically during movement
-                drawLines(); 
-            };
-    
-            document.onmouseup = () => {
-                active = false;
-                document.onmousemove = null;
-                document.onmouseup = null;
-            };
-        };
-    }
-
-    function drawLines() {
-        const svg = document.getElementById("svg-canvas");
-        if (!svg) return;
-        svg.querySelectorAll('.connector').forEach(c => c.remove());
-
-        connections.forEach(conn => {
-            const elA = document.getElementById(conn.from);
-            const elB = document.getElementById(conn.to);
-            if (!elA || !elB) return;
-
-            const x1 = elA.offsetLeft + elA.offsetWidth / 2;
-            const y1 = elA.offsetTop + elA.offsetHeight / 2;
-            const x2 = elB.offsetLeft + elB.offsetWidth / 2;
-            const y2 = elB.offsetTop + elB.offsetHeight / 2;
-
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("class", "connector");
-            line.setAttribute("x1", x1);
-            line.setAttribute("y1", y1);
-            line.setAttribute("x2", x2);
-            line.setAttribute("y2", y2);
-            line.setAttribute("stroke", "#1e3a2b");
-            line.setAttribute("stroke-width", "2");
-
-            svg.appendChild(line);
-        });
-    }
-        
-    // --- CHAT SYSTEM ---
-    // --- TTS VOICE ENGINE CONTROL ---
-    function speakResponse(text) {
-        // FORCE SILENCE: If mode is NOT 'voice', return immediately
-        if (typeof currentMode !== 'undefined' && currentMode !== 'voice') {
-            console.log("TTS Silenced: Not in voice mode (Current mode:", currentMode, ")");
-            return;
-        }
-
-        // DOUBLE-CHECK UI: If the voice modal isn't explicitly visible, do not speak
-        const voiceModal = document.getElementById('voice-modal') || document.getElementById('voice-overlay');
-        if (voiceModal && (voiceModal.style.display === 'none' || voiceModal.classList.contains('hidden'))) {
-            return;
-        }
-
-        if (!('speechSynthesis' in window)) return;
-
-        // Cancel any previous speech queue
-        window.speechSynthesis.cancel();
-
-        const cleanText = text.replace(/[*#_`~]/g, '');
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.1;
-        utterance.pitch = 1.0;
-
-        window.speechSynthesis.speak(utterance);
-    }
-
-    function showTypingIndicator() {
-        const chatBox = document.getElementById("chat-box");
-        const indicator = document.createElement("div");
-        indicator.id = "typing-indicator";
-        indicator.className = "msg assistant typing-indicator";
-        indicator.innerHTML = `<span></span><span></span><span></span>`;
-        chatBox.appendChild(indicator);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    function removeTypingIndicator() {
-        const indicator = document.getElementById("typing-indicator");
-        if (indicator) indicator.remove();
-    }
-
-    async function sendMessage() {
-        const inputField = document.getElementById("user-input");
-        const message = inputField.value.trim();
-        if (!message || !currentThreadId) return;
-
-        // Cancel any lingering TTS speech when sending a new message
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-        }
-
-        const activeThread = threadsCache.find(t => t.id === currentThreadId);
-        if (activeThread && (!activeThread.title || activeThread.title === 'New Session' || activeThread.title === 'New Chat')) {
-            await setThreadTitle(currentThreadId, message);
-        }
-
-        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        appendMessage("user", message, now);
-        inputField.value = "";
-
-        showTypingIndicator();
-
-        try {
-            const res = await fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: message, thread_id: currentThreadId })
-            });
-
-            const data = await res.json();
-            removeTypingIndicator();
-
-            if (data.reply) {
-                appendMessage("assistant", data.reply, data.timestamp || now);
-                // Triggers TTS check (will evaluate currentMode !== 'voice' and stay silent in chat)
-                speakResponse(data.reply);
-            } else if (data.error) {
-                appendMessage("assistant", "⚠️ Error: " + data.error, now);
-            }
-
-            // --- INTENT / ACTION LAYER ROUTER ---
-            if (data.action && data.action !== "none" && !data.requires_confirmation) {
-                handleAiAction(data.action, data.context);
-            }
-        } catch (err) {
-            removeTypingIndicator();
-            appendMessage("assistant", "⚠️ Connection error occurred.", now);
-            console.error("Error sending message:", err);
-        }
-    }
-
-    function speakResponse(text) {
-        // Only allow voice synthesis if speech is supported AND the user is currently in Voice Mode
-        if (!('speechSynthesis' in window) || currentMode !== 'voice') return;
-
-        synth.cancel();
-        const cleanText = text.replace(/[*#_`~]/g, '');
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.1;
-        utterance.pitch = 1.0;
-
-        synth.speak(utterance);
-    }
-    function speakResponse(text) {
-        if (!('speechSynthesis' in window)) return;
-
-        synth.cancel();
-        const cleanText = text.replace(/[*#_`~]/g, '');
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.1;
-        utterance.pitch = 1.0;
-
-        synth.speak(utterance);
-    }
-
-    function handleAiAction(action, context) {
-        context = context || {};
-        
-        switch(action) {
-            case "open_planner":
-                switchMode("planner");
-                if (context.prompt || context.topic) {
-                    const plannerInput = document.getElementById("planner-input");
-                    if (plannerInput) {
-                        plannerInput.value = context.prompt || context.topic;
-                        generateMindMap();
-                    }
-                }
-                break;
-            case "open_routine":
-                switchMode("routine");
-                break;
-            case "open_exercise":
-                switchMode("exercise");
-                break;
-            case "open_meditation":
-                switchMode("meditation");
-                break;
-        }
-    }
-
-    function appendMessage(role, text, time) {
-        const chatBox = document.getElementById("chat-box");
-        const msgDiv = document.createElement("div");
-        msgDiv.className = `msg ${role}`;
-        
-        let parsedText = text;
-        try {
-            if (role === 'assistant') {
-                const jsonCheck = JSON.parse(text);
-                parsedText = jsonCheck.response || text;
-            }
-        } catch(e) {}
-
-        const formattedHtml = typeof marked !== 'undefined' ? marked.parse(parsedText) : parsedText;
-
-        msgDiv.innerHTML = `<div>${formattedHtml}</div><div class="timestamp">${time}</div>`;
-        chatBox.appendChild(msgDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    // --- THREAD & PROFILE MANAGEMENT ---
+    // --- THREADS & CHAT HISTORY ---
     async function loadThreads() {
         try {
             const res = await fetch("/threads");
             const data = await res.json();
             threadsCache = data.threads || [];
+            renderThreadList();
 
-            const list = document.getElementById("thread-list");
-            list.innerHTML = "";
-
-            if (threadsCache.length === 0) {
+            if (threadsCache.length > 0) {
+                if (!currentThreadId) selectThread(threadsCache[0].id);
+            } else {
                 await createNewThread();
-                return;
             }
-
-            threadsCache.forEach(t => {
-                const div = document.createElement("div");
-                div.className = `thread-item ${t.id === currentThreadId ? 'active' : ''}`;
-                div.id = `thread-item-${t.id}`;
-
-                div.innerHTML = `
-                    <span class="thread-title" id="thread-title-${t.id}" onclick="selectThread(${t.id})">${t.title}</span>
-                    <div class="thread-actions">
-                        <span class="action-btn" onclick="startRenameThread(${t.id}, event)" title="Rename">
-                            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                        </span>
-                        <span class="action-btn" onclick="deleteThread(${t.id}, event)" title="Delete">
-                            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                        </span>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-
-            if (!currentThreadId && threadsCache.length > 0) {
-                selectThread(threadsCache[0].id);
-            }
-        } catch(err) {
+        } catch (err) {
             console.error("Error loading threads:", err);
         }
+    }
+
+    function renderThreadList() {
+        const list = document.getElementById("thread-list");
+        list.innerHTML = "";
+
+        threadsCache.forEach(t => {
+            const div = document.createElement("div");
+            div.className = `thread-item ${t.id === currentThreadId ? 'active' : ''}`;
+            div.onclick = () => selectThread(t.id);
+
+            const titleSpan = document.createElement("span");
+            titleSpan.className = "thread-title";
+            titleSpan.innerText = t.title;
+
+            const actionsDiv = document.createElement("div");
+            actionsDiv.className = "thread-actions";
+
+            const renameBtn = document.createElement("span");
+            renameBtn.className = "action-btn";
+            renameBtn.title = "Rename Session";
+            renameBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+            renameBtn.onclick = (e) => {
+                e.stopPropagation();
+                enableThreadRename(div, titleSpan, t.id, t.title);
+            };
+
+            const delBtn = document.createElement("span");
+            delBtn.className = "action-btn";
+            delBtn.title = "Delete Session";
+            delBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`;
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteThread(t.id);
+            };
+
+            actionsDiv.appendChild(renameBtn);
+            actionsDiv.appendChild(delBtn);
+
+            div.appendChild(titleSpan);
+            div.appendChild(actionsDiv);
+            list.appendChild(div);
+        });
+    }
+
+    function enableThreadRename(container, titleSpan, threadId, oldTitle) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "rename-input";
+        input.value = oldTitle;
+
+        container.replaceChild(input, titleSpan);
+        input.focus();
+        input.select();
+
+        const save = async () => {
+            const newTitle = input.value.trim();
+            if (newTitle && newTitle !== oldTitle) {
+                try {
+                    await fetch(`/threads/${threadId}/rename`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ title: newTitle })
+                    });
+                    const t = threadsCache.find(x => x.id === threadId);
+                    if (t) t.title = newTitle;
+                } catch(err) {
+                    console.error("Rename error:", err);
+                }
+            }
+            renderThreadList();
+        };
+
+        input.onblur = save;
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') renderThreadList();
+        };
     }
 
     async function createNewThread() {
         try {
             const res = await fetch("/threads/new", { method: "POST" });
             const data = await res.json();
-
             if (data.thread_id) {
-                currentThreadId = data.thread_id;
-                await loadThreads();
-                clearChatAndPlanner();
+                threadsCache.unshift({ id: data.thread_id, title: data.title });
+                selectThread(data.thread_id);
             }
-        } catch(err) {
+        } catch (err) {
             console.error("Error creating thread:", err);
         }
     }
 
     async function selectThread(id) {
-        if (currentAbortController) {
-            currentAbortController.abort();
-            currentAbortController = null;
-        }
-        if (synth) {
-            synth.cancel();
-        }
-
         currentThreadId = id;
-        document.querySelectorAll(".thread-item").forEach(el => el.classList.remove("active"));
-        const target = document.getElementById(`thread-item-${id}`);
-        if (target) target.classList.add("active");
+        renderThreadList();
 
-        clearChatAndPlanner();
-        await loadThreadHistory(id);
-    }
-
-    function clearChatAndPlanner() {
         document.getElementById("chat-box").innerHTML = "";
+        
         document.querySelectorAll('.map-node').forEach(el => el.remove());
         document.querySelectorAll('.treemap-group-node').forEach(el => el.remove());
         document.querySelectorAll('.prompt-divider').forEach(el => el.remove());
-        
         const svg = document.getElementById("svg-canvas");
         if (svg) svg.querySelectorAll('.connector').forEach(c => c.remove());
 
@@ -2300,110 +1928,538 @@
         historyMapCache = [];
         currentY = 500;
         mapCounter = 0;
-    }
 
-    async function loadThreadHistory(id) {
         try {
             const res = await fetch(`/history/${id}`);
             const data = await res.json();
-            const history = data.history || [];
+            
+            if (data.history) {
+                data.history.forEach(item => {
+                    if (item.role === 'mindmap') {
+                        historyMapCache.push({
+                            data: item.content,
+                            promptText: "Interactive Mind Map Session",
+                            timestamp: item.timestamp || ""
+                        });
 
-            history.forEach(item => {
-                if (item.role === 'user' || item.role === 'assistant') {
-                    appendMessage(item.role, item.content, item.timestamp || "");
-                } else if (item.role === 'mindmap') {
-                    const parsedData = typeof item.content === 'string' ? JSON.parse(item.content) : item.content;
-                    historyMapCache.push({ data: parsedData, promptText: "", timestamp: item.timestamp });
-                    if (plannerViewStyle === 'treemap') {
-                        renderTreemapData(parsedData, "", item.timestamp);
+                        if (plannerViewStyle === 'treemap') {
+                            renderTreemapData(item.content, "Interactive Mind Map Session", item.timestamp || "");
+                        } else {
+                            renderMindMapData(item.content, "Interactive Mind Map Session", item.timestamp || "");
+                        }
                     } else {
-                        renderMindMapData(parsedData, "", item.timestamp);
+                        let text = item.content;
+                        if (item.role === 'assistant') {
+                            try {
+                                const parsed = JSON.loads(item.content);
+                                text = parsed.response || text;
+                            } catch(e) {
+                                try {
+                                    const parsed = JSON.parse(item.content);
+                                    text = parsed.response || text;
+                                } catch(e2) {}
+                            }
+                        }
+                        appendChatMessage(item.role, text, item.timestamp);
                     }
-                }
-            });
-        } catch(err) {
+                });
+            }
+        } catch (err) {
             console.error("Error loading history:", err);
         }
     }
 
-    function startRenameThread(id, event) {
-        event.stopPropagation();
-        const titleSpan = document.getElementById(`thread-title-${id}`);
-        if (!titleSpan) return;
-
-        const currentTitle = titleSpan.innerText;
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "rename-input";
-        input.value = currentTitle;
-
-        input.onclick = (e) => e.stopPropagation();
-        input.onblur = async () => {
-            const newTitle = input.value.trim() || currentTitle;
-            await setThreadTitle(id, newTitle);
-        };
-        input.onkeydown = async (e) => {
-            if (e.key === 'Enter') {
-                const newTitle = input.value.trim() || currentTitle;
-                await setThreadTitle(id, newTitle);
-            }
-        };
-
-        titleSpan.replaceWith(input);
-        input.focus();
-        input.select();
-    }
-
-    async function setThreadTitle(id, newTitle) {
+    async function deleteThread(id) {
         try {
-            const res = await fetch(`/threads/${id}/rename`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: newTitle })
-            });
-            const data = await res.json();
-            if (data.success) {
-                await loadThreads();
+            await fetch(`/threads/${id}/delete`, { method: "DELETE" });
+            threadsCache = threadsCache.filter(t => t.id !== id);
+            if (currentThreadId === id) {
+                currentThreadId = null;
+                if (threadsCache.length > 0) {
+                    selectThread(threadsCache[0].id);
+                } else {
+                    createNewThread();
+                }
+            } else {
+                renderThreadList();
             }
-        } catch(err) {
-            console.error("Error renaming thread:", err);
-        }
-    }
-
-    async function deleteThread(id, event) {
-        event.stopPropagation();
-        if (!confirm("Delete this session?")) return;
-
-        try {
-            const res = await fetch(`/threads/${id}/delete`, { method: "DELETE" });
-            const data = await res.json();
-
-            if (data.success) {
-                if (currentThreadId === id) currentThreadId = null;
-                await loadThreads();
-            }
-        } catch(err) {
+        } catch (err) {
             console.error("Error deleting thread:", err);
         }
     }
 
     async function deleteAllThreads() {
-        if (!confirm("Are you sure you want to delete ALL chat sessions?")) return;
-
+        if (!confirm("Are you sure you want to delete all chat sessions?")) return;
         try {
-            const res = await fetch("/threads/delete_all", { method: "DELETE" });
-            const data = await res.json();
-
-            if (data.success) {
-                currentThreadId = null;
-                await loadThreads();
-            }
-        } catch(err) {
+            await fetch("/threads/delete_all", { method: "DELETE" });
+            threadsCache = [];
+            document.getElementById("chat-box").innerHTML = "";
+            createNewThread();
+        } catch (err) {
             console.error("Error deleting all threads:", err);
         }
     }
 
-    // --- PROFILE MODAL & USER SETTINGS ---
+    // --- CHAT MESSAGING ---
+    function appendChatMessage(role, text, timestamp = "") {
+        const box = document.getElementById("chat-box");
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `msg ${role}`;
+
+        let parsedHtml = text;
+        if (typeof marked !== "undefined" && role === "assistant") {
+            try {
+                parsedHtml = marked.parse(text);
+            } catch (e) {
+                parsedHtml = text;
+            }
+        } else {
+            parsedHtml = text.replace(/\n/g, "<br>");
+        }
+
+        msgDiv.innerHTML = parsedHtml;
+
+        if (timestamp) {
+            const timeSpan = document.createElement("div");
+            timeSpan.className = "timestamp";
+            timeSpan.innerText = timestamp;
+            msgDiv.appendChild(timeSpan);
+        }
+
+        box.appendChild(msgDiv);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+        const box = document.getElementById("chat-box");
+        const indicator = document.createElement("div");
+        indicator.id = "typing-indicator";
+        indicator.className = "msg assistant typing-indicator";
+        indicator.innerHTML = "<span></span><span></span><span></span>";
+        box.appendChild(indicator);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+        const el = document.getElementById("typing-indicator");
+        if (el) el.remove();
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById("user-input");
+        const text = input.value.trim();
+        if (!text || !currentThreadId) return;
+
+        input.value = "";
+        appendChatMessage("user", text, new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        showTypingIndicator();
+
+        try {
+            const res = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ thread_id: currentThreadId, message: text })
+            });
+
+            const data = await res.json();
+            hideTypingIndicator();
+
+            if (data.reply) {
+                appendChatMessage("assistant", data.reply, data.timestamp);
+                
+                // Handle system action switches
+                if (data.action === "open_planner") {
+                    switchMode('planner');
+                    if (data.context && data.context.prompt) {
+                        document.getElementById("planner-input").value = data.context.prompt;
+                        generateMindMap();
+                    }
+                } else if (data.action === "open_routine") {
+                    switchMode('routine');
+                } else if (data.action === "open_exercise") {
+                    switchMode('exercise');
+                } else if (data.action === "open_meditation") {
+                    switchMode('meditation');
+                }
+            } else if (data.error) {
+                appendChatMessage("assistant", `⚠️ Error: ${data.error}`);
+            }
+
+            const activeThread = threadsCache.find(t => t.id === currentThreadId);
+            if (activeThread && activeThread.title === "New Chat") {
+                activeThread.title = text.length > 20 ? text.substring(0, 20) + "..." : text;
+                renderThreadList();
+            }
+        } catch (err) {
+            hideTypingIndicator();
+            appendChatMessage("assistant", "⚠️ Connection error. Please try again.");
+            console.error("Chat error:", err);
+        }
+    }
+
+    // --- INTERACTIVE PLANNER / MIND MAP ---
+    async function generateMindMap() {
+        const input = document.getElementById("planner-input");
+        const topic = input.value.trim();
+        if (!topic || !currentThreadId) return;
+
+        input.value = "";
+
+        try {
+            const res = await fetch("/generate_mindmap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ thread_id: currentThreadId, topic: topic })
+            });
+
+            const response = await res.json();
+            if (response.success) {
+                historyMapCache.push({
+                    data: response.data,
+                    promptText: response.prompt,
+                    timestamp: response.timestamp
+                });
+
+                if (plannerViewStyle === 'treemap') {
+                    renderTreemapData(response.data, response.prompt, response.timestamp);
+                } else {
+                    renderMindMapData(response.data, response.prompt, response.timestamp);
+                }
+            } else {
+                alert("Planner Error: " + response.error);
+            }
+        } catch (err) {
+            console.error("Mindmap error:", err);
+        }
+    }
+
+    function renderMindMapData(rawJsonStr, promptText = "", timestamp = "") {
+        let mapData;
+        try {
+            mapData = typeof rawJsonStr === 'string' ? JSON.parse(rawJsonStr) : rawJsonStr;
+        } catch(e) {
+            console.error("Failed to parse map json:", e);
+            return;
+        }
+
+        mapCounter++;
+        const world = document.getElementById("canvas-world");
+
+        if (mapCounter > 1) {
+            const divider = document.createElement("div");
+            divider.className = "prompt-divider";
+            divider.style.position = "absolute";
+            divider.style.left = "2000px";
+            divider.style.top = `${currentY - 40}px`;
+            divider.style.width = "1000px";
+            divider.style.borderTop = "2px dashed #2e6345";
+            divider.style.color = "#8dae9a";
+            divider.style.fontSize = "0.85rem";
+            divider.style.paddingTop = "4px";
+            divider.innerText = `Update ${mapCounter - 1}: "${promptText}" (${timestamp})`;
+            world.appendChild(divider);
+        }
+
+        const centerX = 2500;
+        const centerY = currentY;
+        lastMapCenterX = centerX;
+        lastMapCenterY = centerY;
+
+        const subjectNode = createNode(mapData.subject || "Main Plan", centerX, centerY, "subject-node");
+        subjectNode.dataset.subjectIndex = mapCounter;
+
+        const topics = mapData.topics || [];
+        const radius = 280;
+        const topicAngleStep = (2 * Math.PI) / Math.max(topics.length, 1);
+
+        let maxChildY = centerY;
+
+        topics.forEach((topicObj, i) => {
+            const angle = i * topicAngleStep;
+            const topicX = centerX + Math.cos(angle) * radius;
+            const topicY = centerY + Math.sin(angle) * radius;
+
+            if (topicY > maxChildY) maxChildY = topicY;
+
+            const topicNode = createNode(topicObj.title, topicX, topicY, "topic-node");
+            connectNodes(subjectNode, topicNode);
+
+            const subObjects = topicObj.objects || [];
+            const subRadius = 160;
+            const subAngleStep = Math.PI / Math.max(subObjects.length + 1, 2);
+            let startAngle = angle - (Math.PI / 3);
+
+            subObjects.forEach((subTitle, j) => {
+                const subAngle = startAngle + (j + 1) * (subAngleStep * 0.8);
+                const subX = topicX + Math.cos(subAngle) * subRadius;
+                const subY = topicY + Math.sin(subAngle) * subRadius;
+
+                if (subY > maxChildY) maxChildY = subY;
+
+                const subNode = createNode(subTitle, subX, subY, "leaf-node");
+                connectNodes(topicNode, subNode);
+            });
+        });
+
+        currentY = maxChildY + 450;
+        centerOn(centerX, centerY);
+    }
+
+    function renderTreemapData(rawJsonStr, promptText = "", timestamp = "") {
+        let mapData;
+        try {
+            mapData = typeof rawJsonStr === 'string' ? JSON.parse(rawJsonStr) : rawJsonStr;
+        } catch(e) {
+            console.error("Failed to parse treemap json:", e);
+            return;
+        }
+
+        mapCounter++;
+        const world = document.getElementById("canvas-world");
+
+        if (mapCounter > 1) {
+            const divider = document.createElement("div");
+            divider.className = "prompt-divider";
+            divider.style.position = "absolute";
+            divider.style.left = "2000px";
+            divider.style.top = `${currentY - 40}px`;
+            divider.style.width = "1000px";
+            divider.style.borderTop = "2px dashed #2e6345";
+            divider.style.color = "#8dae9a";
+            divider.style.fontSize = "0.85rem";
+            divider.style.paddingTop = "4px";
+            divider.innerText = `Update ${mapCounter - 1}: "${promptText}" (${timestamp})`;
+            world.appendChild(divider);
+        }
+
+        const centerX = 2500;
+        const centerY = currentY;
+        lastMapCenterX = centerX;
+        lastMapCenterY = centerY;
+
+        const mainGroup = document.createElement("div");
+        mainGroup.className = "treemap-group-node subject-treemap";
+        mainGroup.style.left = `${centerX - 350}px`;
+        mainGroup.style.top = `${centerY - 200}px`;
+        mainGroup.style.width = "700px";
+        mainGroup.style.minHeight = "350px";
+
+        const mainHeader = document.createElement("div");
+        mainHeader.className = "treemap-header";
+        mainHeader.style.fontSize = "1.3rem";
+        mainHeader.style.color = "#ffffff";
+        mainHeader.innerText = mapData.subject || "Main Plan";
+        mainHeader.ondblclick = () => makeTreemapHeaderEditable(mainHeader);
+        mainGroup.appendChild(mainHeader);
+
+        const grid = document.createElement("div");
+        grid.className = "treemap-container-grid";
+
+        (mapData.topics || []).forEach(t => {
+            const childBox = document.createElement("div");
+            childBox.className = "treemap-child-box";
+
+            const childTitle = document.createElement("div");
+            childTitle.className = "treemap-child-title";
+            childTitle.innerText = t.title;
+            childTitle.ondblclick = () => makeTreemapHeaderEditable(childTitle);
+            childBox.appendChild(childTitle);
+
+            (t.objects || []).forEach(obj => {
+                const leaf = document.createElement("div");
+                leaf.className = "treemap-leaf-item";
+                leaf.innerText = obj;
+                leaf.ondblclick = () => makeTreemapHeaderEditable(leaf);
+                childBox.appendChild(leaf);
+            });
+
+            grid.appendChild(childBox);
+        });
+
+        mainGroup.appendChild(grid);
+        world.appendChild(mainGroup);
+
+        enableTreemapDrag(mainGroup);
+
+        currentY = centerY + 500;
+        centerOn(centerX, centerY);
+    }
+
+    function makeTreemapHeaderEditable(element) {
+        const currentText = element.innerText;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "edit-input";
+        input.value = currentText;
+
+        element.innerHTML = "";
+        element.appendChild(input);
+        input.focus();
+
+        const save = () => {
+            element.innerText = input.value.trim() || currentText;
+        };
+
+        input.onblur = save;
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') save();
+        };
+    }
+
+    function enableTreemapDrag(el) {
+        let isDragging = false, startX, startY, initialLeft, initialTop;
+
+        el.addEventListener("mousedown", (e) => {
+            if (e.target.tagName === "INPUT") return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialLeft = parseInt(el.style.left, 10);
+            initialTop = parseInt(el.style.top, 10);
+            el.style.zIndex = 10;
+            e.stopPropagation();
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!isDragging) return;
+            const dx = (e.clientX - startX) / scale;
+            const dy = (e.clientY - startY) / scale;
+            el.style.left = `${initialLeft + dx}px`;
+            el.style.top = `${initialTop + dy}px`;
+        });
+
+        window.addEventListener("mouseup", () => {
+            if (isDragging) {
+                isDragging = false;
+                el.style.zIndex = 2;
+            }
+        });
+    }
+
+    function createNode(text, x, y, extraClass = "") {
+        const world = document.getElementById("canvas-world");
+        const node = document.createElement("div");
+        node.className = `map-node ${extraClass}`;
+        node.innerText = text;
+
+        node.style.left = `${x}px`;
+        node.style.top = `${y}px`;
+
+        world.appendChild(node);
+
+        const nodeObj = { id: 'node_' + Math.random().toString(36).substr(2, 9), el: node, x: x, y: y };
+        nodesData.push(nodeObj);
+
+        enableNodeDrag(nodeObj);
+        enableNodeEdit(nodeObj);
+
+        return nodeObj;
+    }
+
+    function enableNodeEdit(nodeObj) {
+        nodeObj.el.addEventListener("dblclick", (e) => {
+            e.stopPropagation();
+            const currentText = nodeObj.el.innerText;
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "edit-input";
+            input.value = currentText;
+
+            nodeObj.el.innerHTML = "";
+            nodeObj.el.appendChild(input);
+            input.focus();
+
+            const save = () => {
+                const val = input.value.trim() || currentText;
+                nodeObj.el.innerText = val;
+            };
+
+            input.onblur = save;
+            input.onkeydown = (evt) => {
+                if (evt.key === 'Enter') save();
+            };
+        });
+    }
+
+    function connectNodes(nodeA, nodeB) {
+        connections.push({ from: nodeA, to: nodeB });
+        drawLines();
+    }
+
+    function drawLines() {
+        const svg = document.getElementById("svg-canvas");
+        if (!svg) return;
+        
+        svg.querySelectorAll('.connector').forEach(c => c.remove());
+
+        connections.forEach(conn => {
+            const line = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "line");
+            line.setAttribute("class", "connector");
+            
+            const x1 = conn.from.x + (conn.from.el.offsetWidth / 2);
+            const y1 = conn.from.y + (conn.from.el.offsetHeight / 2);
+            const x2 = conn.to.x + (conn.to.el.offsetWidth / 2);
+            const y2 = conn.to.y + (conn.to.el.offsetHeight / 2);
+
+            line.setAttribute("x1", x1);
+            line.setAttribute("y1", y1);
+            line.setAttribute("x2", x2);
+            line.setAttribute("y2", y2);
+            line.setAttribute("stroke", "#2e6345");
+            line.setAttribute("stroke-width", "2");
+
+            svg.appendChild(line);
+        });
+    }
+
+    function enableNodeDrag(nodeObj) {
+        let isDragging = false, startX, startY, initialX, initialY;
+
+        nodeObj.el.addEventListener("mousedown", (e) => {
+            if (e.target.tagName === "INPUT") return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialX = nodeObj.x;
+            initialY = nodeObj.y;
+            nodeObj.el.style.zIndex = 10;
+            e.stopPropagation();
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!isDragging) return;
+            const dx = (e.clientX - startX) / scale;
+            const dy = (e.clientY - startY) / scale;
+
+            nodeObj.x = initialX + dx;
+            nodeObj.y = initialY + dy;
+
+            nodeObj.el.style.left = `${nodeObj.x}px`;
+            nodeObj.el.style.top = `${nodeObj.y}px`;
+
+            drawLines();
+        });
+
+        window.addEventListener("mouseup", () => {
+            if (isDragging) {
+                isDragging = false;
+                nodeObj.el.style.zIndex = 2;
+            }
+        });
+    }
+
+    // --- PROFILE / CONTEXT MODAL ---
+    async function loadProfile() {
+        try {
+            const res = await fetch("/profile");
+            const data = await res.json();
+            if (data.preferred_name) document.getElementById("pref-name").value = data.preferred_name;
+            if (data.wellbeing_goals) document.getElementById("wellbeing-goal").value = data.wellbeing_goals;
+        } catch (err) {
+            console.error("Error loading profile:", err);
+        }
+    }
+
     function openProfileModal() {
         document.getElementById("profile-modal").style.display = "flex";
     }
@@ -2412,35 +2468,19 @@
         document.getElementById("profile-modal").style.display = "none";
     }
 
-    async function loadProfile() {
-        try {
-            const res = await fetch("/profile");
-            const data = await res.json();
-
-            if (data.preferred_name) document.getElementById("pref-name").value = data.preferred_name;
-            if (data.wellbeing_goals) document.getElementById("wellbeing-goal").value = data.wellbeing_goals;
-        } catch(err) {
-            console.error("Error loading profile:", err);
-        }
-    }
-
     async function saveProfile() {
-        const name = document.getElementById("pref-name").value.trim();
+        const prefName = document.getElementById("pref-name").value.trim();
         const goals = document.getElementById("wellbeing-goal").value.trim();
 
         try {
-            const res = await fetch("/profile", {
+            await fetch("/profile", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ preferred_name: name, wellbeing_goals: goals })
+                body: JSON.stringify({ preferred_name: prefName, wellbeing_goals: goals })
             });
-
-            const data = await res.json();
-            if (data.success) {
-                alert("Personal context updated!");
-                closeProfileModal();
-            }
-        } catch(err) {
+            closeProfileModal();
+            alert("Context saved!");
+        } catch (err) {
             console.error("Error saving profile:", err);
         }
     }
