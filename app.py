@@ -528,50 +528,45 @@ def voice_chat():
     if "user_id" not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json(silent=True) or {}
-    user_message = data.get("message", "").strip()
-    voice_history = data.get("history", [])
+    data = request.json or {}
+    message = data.get("message", "").strip()
+    history = data.get("history", [])
 
-    if not user_message:
-        return jsonify({"error": "Empty transcript"}), 400
-
-    now_str = datetime.now().strftime("%I:%M %p")
-
-    # Adapt system prompt specifically for speech output (concise, direct conversational responses)
-    voice_system_prompt = get_system_prompt(session["user_id"])
-    voice_system_prompt["content"] += (
-        "\n\nVOICE MODE INSTRUCTIONS:\n"
-        "You are currently speaking directly through spoken audio voice mode. "
-        "Keep your response natural, highly conversational, and brief (1 to 3 sentences max) so speech playback sounds realistic and natural. "
-        "Do NOT use markdown, emojis, asterisks, tables, bullet points, or complex punctuation."
-    )
-
-    formatted_history = []
-    for h in voice_history[-6:]:
-        if h.get("role") and h.get("content"):
-            formatted_history.append({"role": h["role"], "content": h["content"]})
-
-    formatted_history.append({"role": "user", "content": user_message})
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
 
     try:
+        # Voice-optimized system prompt for concise speech rendering
+        voice_system_prompt = {
+            "role": "system",
+            "content": (
+                "You are Vale in Voice Mode. Keep your responses short, warm, and natural for spoken conversation. "
+                "Respond in 1 to 3 natural sentences maximum. Avoid long lists, bullet points, markdown formatting, or special characters. "
+                "Speak conversationally as if talking directly to a friend."
+            )
+        }
+
+        # Build clean dialog history
+        messages = [voice_system_prompt]
+        for msg in history[-6:]:  # Keep recent history context bounded
+            if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+
+        messages.append({"role": "user", "content": message})
+
         response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[voice_system_prompt] + formatted_history,
+            model="llama-3.3-70b-versatile",
+            messages=messages,
             temperature=0.7,
-            max_tokens=250,
-            response_format={"type": "json_object"}
+            max_tokens=150
         )
 
-        raw_json = response.choices[0].message.content.strip()
-        parsed_res = json.loads(raw_json)
-        reply = parsed_res.get("response", "")
+        reply = response.choices[0].message.content.strip()
+        return jsonify({"reply": reply})
 
-        return jsonify({
-            "reply": reply,
-            "timestamp": now_str
-        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("Voice Chat Error:", str(e))
+        return jsonify({"error": "Failed to process voice request."}), 500
 
 #EXERCISE MODE ROUTES
 @app.route("/exercise/setup", methods=["POST"])
