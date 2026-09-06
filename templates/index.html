@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vale Valor</title>
     <!-- Custom Favicon / Tab Logo -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='Georgia, serif' font-size='105' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 100 100'><text x='50%' y='85%' font-family='Georgia, serif' font-size='105' font-weight='bold' fill='%23ffffff' text-anchor='middle'>V</text></svg>">
+    <script src="[https://cdn.jsdelivr.net/npm/marked/marked.min.js](https://cdn.jsdelivr.net/npm/marked/marked.min.js)"></script>
     <style>
         * { box-sizing: border-box; }
 
@@ -2057,6 +2057,12 @@
             return;
         }
 
+        // DOUBLE-CHECK UI: If the voice modal isn't explicitly visible, do not speak
+        const voiceModal = document.getElementById('voice-modal') || document.getElementById('voice-overlay');
+        if (voiceModal && (voiceModal.style.display === 'none' || voiceModal.classList.contains('hidden'))) {
+            return;
+        }
+
         if (!('speechSynthesis' in window)) return;
 
         // Cancel any previous speech queue
@@ -2133,6 +2139,30 @@
             appendMessage("assistant", "⚠️ Connection error occurred.", now);
             console.error("Error sending message:", err);
         }
+    }
+
+    function speakResponse(text) {
+        // Only allow voice synthesis if speech is supported AND the user is currently in Voice Mode
+        if (!('speechSynthesis' in window) || currentMode !== 'voice') return;
+
+        synth.cancel();
+        const cleanText = text.replace(/[*#_`~]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.1;
+        utterance.pitch = 1.0;
+
+        synth.speak(utterance);
+    }
+    function speakResponse(text) {
+        if (!('speechSynthesis' in window)) return;
+
+        synth.cancel();
+        const cleanText = text.replace(/[*#_`~]/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.1;
+        utterance.pitch = 1.0;
+
+        synth.speak(utterance);
     }
 
     function handleAiAction(action, context) {
