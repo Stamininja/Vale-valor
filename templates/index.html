@@ -2559,19 +2559,8 @@
     }
 
     function speakResponse(text) {
-        // Only allow voice synthesis if speech is supported AND the user is currently in Voice Mode
+        // Ensure text-to-speech ONLY plays when currently in voice mode
         if (!('speechSynthesis' in window) || currentMode !== 'voice') return;
-
-        synth.cancel();
-        const cleanText = text.replace(/[*#_`~]/g, '');
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.1;
-        utterance.pitch = 1.0;
-
-        synth.speak(utterance);
-    }
-    function speakResponse(text) {
-        if (!('speechSynthesis' in window)) return;
 
         synth.cancel();
         const cleanText = text.replace(/[*#_`~]/g, '');
