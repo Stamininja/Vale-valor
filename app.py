@@ -542,12 +542,12 @@ def voice_chat():
     voice_system_prompt["content"] += (
         "\n\nVOICE MODE INSTRUCTIONS:\n"
         "You are currently speaking directly through spoken audio voice mode. "
-        "Keep your response natural, highly conversational, and brief (1 to 3 sentences max) so speech playback sounds realistic and natural. "
-        "Do NOT use markdown, emojis, asterisks, tables, bullet points, or complex punctuation."
+        "Keep your response natural, highly conversational, and concise (1 to 3 sentences max) so speech playback sounds realistic and natural. "
+        "Do NOT use markdown formatting, bolding, italics, emojis, asterisks, tables, bullet points, numbered lists, or complex punctuation that is unsuited for text-to-speech. Speak in direct, clean prose meant strictly to be heard."
     )
 
     formatted_history = []
-    for h in voice_history[-6:]:
+    for h in voice_history[-10:]:
         if h.get("role") and h.get("content"):
             formatted_history.append({"role": h["role"], "content": h["content"]})
 
@@ -558,7 +558,7 @@ def voice_chat():
             model="openai/gpt-oss-20b",
             messages=[voice_system_prompt] + formatted_history,
             temperature=0.7,
-            max_tokens=250,
+            max_tokens=600,
             response_format={"type": "json_object"}
         )
 
