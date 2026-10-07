@@ -1244,26 +1244,78 @@
         }
     }
 
-    function speakValeResponse(text) {
-        if (currentMode !== 'voice') {
-            return;
+    // --- HIGH-QUALITY NATURAL VOICE SELECTION & SYNTHESIS ---
+    let valeNaturalVoice = null;
+    
+    function pickNaturalVoice() {
+        if (!('speechSynthesis' in window)) return;
+        
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) return;
+    
+        // Rank natural human voices available across Chrome, Edge, Safari, and Android
+        const highQualityVoices = [
+            "Google US English",
+            "Google UK English Female",
+            "Microsoft Aria Online (Natural) - English (United States)",
+            "Microsoft Jenny Online (Natural) - English (United States)",
+            "Microsoft Guy Online (Natural) - English (United States)",
+            "Samantha",
+            "Karen",
+            "Daniel",
+            "Victoria"
+        ];
+    
+        // Pick the best match found on the user's system
+        for (const name of highQualityVoices) {
+            const match = voices.find(v => v.name.includes(name));
+            if (match) {
+                valeNaturalVoice = match;
+                return;
+            }
         }
-
+    
+        // Fallback: look for any voice marked "Natural" or "Google" in English
+        valeNaturalVoice = voices.find(v => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Google"))) ||
+                           voices.find(v => v.lang.startsWith("en") && !v.localService) ||
+                           voices.find(v => v.lang.startsWith("en")) ||
+                           voices[0];
+    }
+    
+    // Ensure voices are fetched when the browser finishes loading them
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = pickNaturalVoice;
+        pickNaturalVoice();
+    }
+    
+    function speakValeResponse(text) {
+        if (currentMode !== 'voice') return;
+    
         if (!('speechSynthesis' in window)) {
             if (isVoiceSessionActive && currentMode === 'voice') startListening();
             return;
         }
-
+    
         window.speechSynthesis.cancel();
         
-        // Strip markdown syntax if present to format natural prose for voice speech
+        // Strip markdown formatting symbols (*, _, #, etc.) so it doesn't read them out loud
         const cleanText = text.replace(/[*_#`~]/g, '');
-
+    
         const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = 'en-US';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-
+        
+        if (!valeNaturalVoice) pickNaturalVoice();
+        
+        if (valeNaturalVoice) {
+            utterance.voice = valeNaturalVoice;
+            utterance.lang = valeNaturalVoice.lang;
+        } else {
+            utterance.lang = 'en-US';
+        }
+    
+        // Dynamic tuning parameters for human-like speed and cadence
+        utterance.rate = 1.0;  // Normal speed
+        utterance.pitch = 1.0; // Natural tone pitch
+    
         utterance.onstart = () => {
             if (currentMode !== 'voice') {
                 window.speechSynthesis.cancel();
@@ -1273,7 +1325,7 @@
             isSpeaking = true;
             document.getElementById("voice-status").innerText = "Vale is speaking...";
         };
-
+    
         utterance.onend = () => {
             isSpeaking = false;
             if (isVoiceSessionActive && !isMuted && currentMode === 'voice') {
@@ -1283,15 +1335,14 @@
                 document.getElementById("voice-status").innerText = "Ready";
             }
         };
-
+    
         utterance.onerror = () => {
             isSpeaking = false;
             if (isVoiceSessionActive && !isMuted && currentMode === 'voice') startListening();
         };
-
+    
         window.speechSynthesis.speak(utterance);
     }
-
     function appendVoiceTranscript(role, text) {
         const box = document.getElementById("voice-transcript-box");
         const msgDiv = document.createElement("div");
